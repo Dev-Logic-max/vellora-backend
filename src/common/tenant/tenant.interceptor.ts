@@ -8,12 +8,14 @@ import { TenantContextService } from './tenant-context.service';
  * carries an authenticated user, so downstream services can read the active
  * `companyId` via TenantContextService without passing it explicitly.
  *
- * Requests without a `req.user` (e.g. the public /health endpoint) pass through
- * untouched.
+ * Requests without an active tenant (`req.user.companyId`) — the public
+ * /health endpoint, or a freshly signed-up user with no membership — pass
+ * through untouched.
  *
- * Placeholder for RLS: this is also where a transaction-local Postgres GUC
- * (`SET LOCAL app.current_company_id = ...`) would be set once DB-level RLS is
- * enabled — see src/database/rls/policies.sql.
+ * RLS itself is applied per query, transaction-locally, in
+ * DatabaseService.withTenant (SET LOCAL ROLE + tenant GUC) — safe with the
+ * Supabase transaction pooler. This interceptor just makes the active
+ * `companyId` ambiently available so services don't thread it through args.
  */
 @Injectable()
 export class TenantInterceptor implements NestInterceptor {
@@ -26,12 +28,13 @@ export class TenantInterceptor implements NestInterceptor {
     if (!user?.companyId) {
       return next.handle();
     }
+    const companyId = user.companyId;
 
     // The route handler runs when the returned observable is subscribed, which
     // happens after `intercept` returns. Subscribing to `next.handle()` *inside*
     // `als.run` is what keeps the tenant store active during that execution.
     return new Observable((subscriber) => {
-      this.tenantContext.run({ companyId: user.companyId, user }, () => {
+      this.tenantContext.run({ companyId, user }, () => {
         next.handle().subscribe(subscriber);
       });
     });

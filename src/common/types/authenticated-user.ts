@@ -1,17 +1,34 @@
-import type { UserRole } from '../../database/schema/enums';
+import type { MembershipRole, ScopeType } from '../../database/schema/enums';
+
+/** A single resolved membership the principal holds. */
+export interface MembershipContext {
+  companyId: string;
+  role: MembershipRole;
+  scopeType: ScopeType;
+  scopeIds: string[];
+}
 
 /**
- * The principal attached to a request after the auth guard validates the
- * Supabase JWT. `companyId` is the tenant boundary used everywhere downstream.
+ * The principal attached to a request after the Supabase JWT is verified and
+ * the matching `users` row + memberships are resolved from the database.
+ *
+ * `companyId`/`role`/`scope*` describe the ACTIVE tenant context for this
+ * request — chosen from `memberships` (optionally narrowed by an `x-company-id`
+ * header that must match one of the user's memberships). They are undefined for
+ * a freshly signed-up user who has no membership yet.
  */
 export interface AuthenticatedUser {
   /** Supabase Auth subject (`sub` claim). */
-  supabaseUserId: string;
-  /** Application `users.id`, when the principal has been provisioned. */
-  userId?: string;
+  supabaseUid: string;
+  /** Application `users.id`. */
+  userId: string;
   email: string;
-  companyId: string;
-  role: UserRole;
+  name: string | null;
+  memberships: MembershipContext[];
+  companyId?: string;
+  role?: MembershipRole;
+  scopeType?: ScopeType;
+  scopeIds?: string[];
 }
 
 declare global {

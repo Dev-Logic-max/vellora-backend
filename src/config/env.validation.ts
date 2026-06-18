@@ -1,80 +1,42 @@
-import { plainToInstance, Transform } from 'class-transformer';
-import {
-  IsEnum,
-  IsInt,
-  IsOptional,
-  IsString,
-  Max,
-  Min,
-  MinLength,
-  validateSync,
-} from 'class-validator';
-
-export enum NodeEnv {
-  Development = 'development',
-  Production = 'production',
-  Test = 'test',
-}
+import { z } from 'zod';
 
 /**
- * Shape + constraints for process env. Validated once at boot so the app
- * fails fast with a readable message instead of crashing on first use.
+ * Zod-validated process environment. Validated once at boot (via ConfigModule's
+ * `validate`) so the app fails fast with a readable message instead of crashing
+ * on first use. Optional keys (Cloudinary, Redis, Supabase) may be filled in
+ * later without blocking local boot.
  */
-export class EnvironmentVariables {
-  @IsEnum(NodeEnv)
-  @IsOptional()
-  NODE_ENV: NodeEnv = NodeEnv.Development;
+const envSchema = z.object({
+  NODE_ENV: z.enum(['development', 'production', 'test']).default('development'),
+  PORT: z.coerce.number().int().min(0).max(65535).default(3030),
+  CORS_ORIGINS: z.string().default('http://localhost:3000'),
 
-  @Transform(({ value }) => (value === undefined ? 3001 : Number(value)))
-  @IsInt()
-  @Min(0)
-  @Max(65535)
-  PORT = 3001;
+  // Direct (session-pooler :5432) connection — used by drizzle-kit migrations.
+  DATABASE_URL: z.string().min(1),
+  // Transaction-pooler (:6543) connection — used by the runtime Drizzle client.
+  DATABASE_POOL_URL: z.string().min(1),
 
-  @IsString()
-  @IsOptional()
-  CORS_ORIGINS = 'http://localhost:3000';
+  SUPABASE_URL: z.string().url().optional(),
+  SUPABASE_ANON_KEY: z.string().optional(),
+  SUPABASE_SERVICE_ROLE_KEY: z.string().optional(),
+  SUPABASE_JWT_SECRET: z.string().optional(),
 
-  // Required: postgres.js connects lazily, so a valid-looking URL is enough
-  // for the app to boot even when the database itself is unreachable.
-  @IsString()
-  @MinLength(1)
-  DATABASE_URL!: string;
+  CLOUDINARY_CLOUD_NAME: z.string().optional(),
+  CLOUDINARY_API_KEY: z.string().optional(),
+  CLOUDINARY_API_SECRET: z.string().optional(),
 
-  @IsString()
-  @IsOptional()
-  SUPABASE_URL?: string;
+  REDIS_URL: z.string().optional(),
+});
 
-  @IsString()
-  @IsOptional()
-  SUPABASE_ANON_KEY?: string;
+export type EnvVars = z.infer<typeof envSchema>;
 
-  @IsString()
-  @IsOptional()
-  SUPABASE_SERVICE_ROLE_KEY?: string;
-
-  @IsString()
-  @IsOptional()
-  SUPABASE_JWT_SECRET?: string;
-}
-
-export function validateEnv(config: Record<string, unknown>): EnvironmentVariables {
-  const validated = plainToInstance(EnvironmentVariables, config, {
-    enableImplicitConversion: false,
-  });
-
-  const errors = validateSync(validated, {
-    skipMissingProperties: false,
-    whitelist: false,
-  });
-
-  if (errors.length > 0) {
-    const details = errors
-      .map((e) => Object.values(e.constraints ?? {}).join(', '))
-      .filter(Boolean)
+export function validateEnv(config: Record<string, unknown>): EnvVars {
+  const parsed = envSchema.safeParse(config);
+  if (!parsed.success) {
+    const details = parsed.error.issues
+      .map((issue) => `${issue.path.join('.') || '(root)'}: ${issue.message}`)
       .join('\n  - ');
     throw new Error(`Invalid environment configuration:\n  - ${details}`);
   }
-
-  return validated;
+  return parsed.data;
 }

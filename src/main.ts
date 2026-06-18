@@ -1,7 +1,10 @@
 import 'reflect-metadata';
-import { Logger, ValidationPipe } from '@nestjs/common';
+import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';
+import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import { cleanupOpenApiDoc } from 'nestjs-zod';
+import type { Request, Response } from 'express';
 import { AppModule } from './app.module';
 import type { AppConfig } from './config/configuration';
 
@@ -14,20 +17,22 @@ async function bootstrap(): Promise<void> {
     origin: corsOrigins,
     credentials: true,
     methods: ['GET', 'POST', 'PATCH', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Authorization', 'Content-Type', 'x-company-id'],
   });
 
   app.setGlobalPrefix('api', { exclude: ['health'] });
-
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true,
-      forbidNonWhitelisted: true,
-      transform: true,
-      transformOptions: { enableImplicitConversion: true },
-    }),
-  );
-
   app.enableShutdownHooks();
+
+  // OpenAPI for frontend type-gen (openapi-typescript). cleanupOpenApiDoc folds
+  // in the Zod DTO schemas produced by nestjs-zod's createZodDto.
+  const swaggerConfig = new DocumentBuilder()
+    .setTitle('Vellora API')
+    .setDescription('Multi-tenant HR & workforce-management platform API')
+    .setVersion('0.1.0')
+    .addBearerAuth()
+    .build();
+  const document = cleanupOpenApiDoc(SwaggerModule.createDocument(app, swaggerConfig));
+  app.getHttpAdapter().get('/api-json', (_req: Request, res: Response) => res.json(document));
 
   const port = config.get('port', { infer: true });
   await app.listen(port);
@@ -35,6 +40,7 @@ async function bootstrap(): Promise<void> {
   const logger = new Logger('Bootstrap');
   logger.log(`Vellora API listening on http://localhost:${port}`);
   logger.log(`Health check:   http://localhost:${port}/health`);
+  logger.log(`OpenAPI (JSON): http://localhost:${port}/api-json`);
   logger.log(`CORS origins:   ${corsOrigins.join(', ')}`);
 }
 

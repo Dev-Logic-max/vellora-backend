@@ -1,19 +1,9 @@
-import { IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { createZodDto } from 'nestjs-zod';
+import { createCompanySchema } from './create-company.dto';
 
-/** All fields optional — manual partial of CreateCompanyDto (no mapped-types dep). */
-export class UpdateCompanyDto {
-  @IsOptional()
-  @IsString()
-  @MinLength(2)
-  @MaxLength(120)
-  name?: string;
+/** Partial of the create schema; `groupId` reassignment is a Phase 1 concern. */
+export const updateCompanySchema = createCompanySchema
+  .pick({ name: true, country: true, currency: true, timezone: true })
+  .partial();
 
-  @IsOptional()
-  @IsString()
-  @MinLength(2)
-  @MaxLength(120)
-  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
-    message: 'slug must be lowercase alphanumeric words separated by single hyphens',
-  })
-  slug?: string;
-}
+export class UpdateCompanyDto extends createZodDto(updateCompanySchema) {}

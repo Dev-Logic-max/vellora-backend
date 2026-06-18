@@ -4,6 +4,7 @@ import { drizzle } from 'drizzle-orm/postgres-js';
 import postgres from 'postgres';
 import type { AppConfig } from '../config/configuration';
 import { DRIZZLE, PG_CONNECTION } from './database.constants';
+import { DatabaseService } from './database.service';
 import type { PgClient } from './drizzle.types';
 import * as schema from './schema';
 
@@ -21,7 +22,9 @@ import * as schema from './schema';
       provide: PG_CONNECTION,
       inject: [ConfigService],
       useFactory: (config: ConfigService<AppConfig, true>): PgClient => {
-        const url = config.get('database.url', { infer: true });
+        // Runtime uses the transaction pooler (:6543); migrations use the
+        // direct URL (:5432) via drizzle.config.ts.
+        const url = config.get('database.poolUrl', { infer: true });
         return postgres(url, {
           // Keep the pool small for the API; tune per-deployment later.
           max: 10,
@@ -37,8 +40,9 @@ import * as schema from './schema';
       useFactory: (client: PgClient) =>
         drizzle(client, { schema, casing: 'snake_case', logger: false }),
     },
+    DatabaseService,
   ],
-  exports: [DRIZZLE, PG_CONNECTION],
+  exports: [DRIZZLE, PG_CONNECTION, DatabaseService],
 })
 export class DatabaseModule implements OnApplicationShutdown {
   private readonly logger = new Logger(DatabaseModule.name);

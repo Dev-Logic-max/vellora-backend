@@ -1,18 +1,15 @@
-import { IsOptional, IsString, Matches, MaxLength, MinLength } from 'class-validator';
+import { createZodDto } from 'nestjs-zod';
+import { z } from 'zod';
 
-export class CreateCompanyDto {
-  @IsString()
-  @MinLength(2)
-  @MaxLength(120)
-  name!: string;
+export const createCompanySchema = z.object({
+  name: z.string().min(2).max(120),
+  /** ISO-3166 alpha-2 (e.g. "US", "GB"). Defaults to "US" if omitted. */
+  country: z.string().length(2).optional(),
+  /** ISO-4217 (e.g. "USD", "EUR"). Defaults to "USD" if omitted. */
+  currency: z.string().length(3).optional(),
+  /** IANA timezone (e.g. "Europe/London"). Defaults to "UTC" if omitted. */
+  timezone: z.string().min(1).max(64).optional(),
+  groupId: z.uuid().optional(),
+});
 
-  /** URL-safe identifier; derived from `name` when omitted. */
-  @IsOptional()
-  @IsString()
-  @MinLength(2)
-  @MaxLength(120)
-  @Matches(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, {
-    message: 'slug must be lowercase alphanumeric words separated by single hyphens',
-  })
-  slug?: string;
-}
+export class CreateCompanyDto extends createZodDto(createCompanySchema) {}

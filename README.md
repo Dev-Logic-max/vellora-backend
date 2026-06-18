@@ -2,7 +2,7 @@
 
 Multi-tenant API for Vellora, built with **NestJS 11**, **TypeScript (strict)**, and
 **Drizzle ORM** over PostgreSQL (Supabase-compatible). Standalone repo — pairs with
-`vellora-frontend` (Next.js, `:3000`). Runs on **`:3001`**.
+`vellora-frontend` (Next.js, `:3000`). Runs on **`:3030`**.
 
 ## Stack
 
@@ -16,7 +16,7 @@ Multi-tenant API for Vellora, built with **NestJS 11**, **TypeScript (strict)**,
 ```bash
 pnpm install
 cp .env.example .env   # then fill in DATABASE_URL + Supabase keys
-pnpm start:dev         # http://localhost:3001  (health: /health)
+pnpm start:dev         # http://localhost:3030  (health: /health)
 ```
 
 > The app boots even without a reachable database — `postgres.js` connects lazily,
@@ -26,7 +26,7 @@ pnpm start:dev         # http://localhost:3001  (health: /health)
 
 | Script               | Purpose                                          |
 | -------------------- | ------------------------------------------------ |
-| `pnpm start:dev`     | Watch-mode dev server on `:3001`                 |
+| `pnpm start:dev`     | Watch-mode dev server on `:3030`                 |
 | `pnpm build`         | Compile to `dist/`                               |
 | `pnpm start:prod`    | Run compiled server                              |
 | `pnpm lint`          | ESLint (flat config, type-checked)               |

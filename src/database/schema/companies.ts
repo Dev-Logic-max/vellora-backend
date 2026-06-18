@@ -1,15 +1,23 @@
 import { relations } from 'drizzle-orm';
 import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
-import { users } from './users';
+import { companyStatusEnum } from './enums';
+import { memberships } from './memberships';
 
 /**
- * Tenant root. Every other tenant-scoped row references `companies.id`
- * via a `company_id` column, and RLS policies pivot on that relationship.
+ * Tenant root. Every tenant-scoped row references `companies.id` via a
+ * `company_id` column and RLS policies pivot on it. `group_id` / `plan_id` are
+ * nullable references to tables introduced in Phase 1 (groups, plans), so they
+ * are plain uuids here (no FK yet).
  */
 export const companies = pgTable('companies', {
   id: uuid('id').defaultRandom().primaryKey(),
+  groupId: uuid('group_id'),
   name: text('name').notNull(),
-  slug: text('slug').notNull().unique(),
+  country: text('country').notNull().default('US'),
+  currency: text('currency').notNull().default('USD'),
+  timezone: text('timezone').notNull().default('UTC'),
+  status: companyStatusEnum('status').notNull().default('active'),
+  planId: uuid('plan_id'),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .defaultNow()
@@ -18,7 +26,7 @@ export const companies = pgTable('companies', {
 });
 
 export const companiesRelations = relations(companies, ({ many }) => ({
-  users: many(users),
+  memberships: many(memberships),
 }));
 
 export type Company = typeof companies.$inferSelect;
