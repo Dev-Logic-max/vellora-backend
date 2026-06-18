@@ -31,3 +31,13 @@ export const membershipStatusEnum = pgEnum('membership_status', MEMBERSHIP_STATU
 export const COMPANY_STATUSES = ['pending', 'active', 'inactive', 'suspended', 'deleted'] as const;
 export type CompanyStatus = (typeof COMPANY_STATUSES)[number];
 export const companyStatusEnum = pgEnum('company_status', COMPANY_STATUSES);
+
+/** How a group is billed (roles-and-access.md §6). */
+export const BILLING_MODES = ['consolidated', 'per_company'] as const;
+export type BillingMode = (typeof BILLING_MODES)[number];
+export const billingModeEnum = pgEnum('billing_mode', BILLING_MODES);
+
+/** Store lifecycle (02-stores §8). */
+export const STORE_STATUSES = ['pending', 'active', 'inactive', 'suspended', 'archived'] as const;
+export type StoreStatus = (typeof STORE_STATUSES)[number];
+export const storeStatusEnum = pgEnum('store_status', STORE_STATUSES);

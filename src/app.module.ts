@@ -3,6 +3,7 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { AuthModule } from './auth/auth.module';
+import { AuditModule } from './audit/audit.module';
 import { CommonModule } from './common/common.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { TenantInterceptor } from './common/tenant/tenant.interceptor';
@@ -10,7 +11,12 @@ import configuration from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { CompaniesModule } from './companies/companies.module';
 import { DatabaseModule } from './database/database.module';
+import { EntitlementsModule } from './entitlements/entitlements.module';
+import { GroupsModule } from './groups/groups.module';
 import { HealthModule } from './health/health.module';
+import { PermissionsModule } from './permissions/permissions.module';
+import { SearchModule } from './search/search.module';
+import { StoresModule } from './stores/stores.module';
 
 @Module({
   imports: [
@@ -23,9 +29,15 @@ import { HealthModule } from './health/health.module';
     }),
     DatabaseModule,
     CommonModule,
+    AuditModule,
+    PermissionsModule,
+    EntitlementsModule,
     AuthModule,
     HealthModule,
     CompaniesModule,
+    GroupsModule,
+    StoresModule,
+    SearchModule,
   ],
   providers: [
     // Validates request DTOs declared with `createZodDto`; passes everything
