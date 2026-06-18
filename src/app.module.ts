@@ -11,6 +11,7 @@ import configuration from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { CompaniesModule } from './companies/companies.module';
 import { DatabaseModule } from './database/database.module';
+import { EmployeesModule } from './employees/employees.module';
 import { EntitlementsModule } from './entitlements/entitlements.module';
 import { GroupsModule } from './groups/groups.module';
 import { HealthModule } from './health/health.module';
@@ -37,6 +38,7 @@ import { StoresModule } from './stores/stores.module';
     CompaniesModule,
     GroupsModule,
     StoresModule,
+    EmployeesModule,
     SearchModule,
   ],
   providers: [

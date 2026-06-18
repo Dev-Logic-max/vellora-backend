@@ -69,26 +69,6 @@ export const storeActivities = pgTable(
   (table) => [index('store_activities_store_id_idx').on(table.storeId)],
 );
 
-/** Stub: employee↔store assignment (fleshed out in Phase 2). */
-export const employeeStores = pgTable(
-  'employee_stores',
-  {
-    id: uuid('id').defaultRandom().primaryKey(),
-    companyId: uuid('company_id')
-      .notNull()
-      .references(() => companies.id, { onDelete: 'cascade' }),
-    userId: uuid('user_id')
-      .notNull()
-      .references(() => users.id, { onDelete: 'cascade' }),
-    storeId: uuid('store_id')
-      .notNull()
-      .references(() => stores.id, { onDelete: 'cascade' }),
-    isPrimary: boolean('is_primary').notNull().default(true),
-    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
-  },
-  (table) => [unique('employee_stores_user_store_unique').on(table.userId, table.storeId)],
-);
-
 export const storesRelations = relations(stores, ({ one, many }) => ({
   company: one(companies, { fields: [stores.companyId], references: [companies.id] }),
   activities: many(storeActivities),

@@ -15,6 +15,20 @@
       "when": 1781760160092,
       "tag": "0001_nasty_unus",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1781776231285,
+      "tag": "0002_phase2_employees",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1781776267347,
+      "tag": "0003_phase2_employee_stores_cleanup",
+      "breakpoints": true
     }
   ]
 }

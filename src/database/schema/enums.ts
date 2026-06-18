@@ -41,3 +41,55 @@ export const billingModeEnum = pgEnum('billing_mode', BILLING_MODES);
 export const STORE_STATUSES = ['pending', 'active', 'inactive', 'suspended', 'archived'] as const;
 export type StoreStatus = (typeof STORE_STATUSES)[number];
 export const storeStatusEnum = pgEnum('store_status', STORE_STATUSES);
+
+/** Employee lifecycle (03-employees §8). */
+export const EMPLOYEE_STATUSES = [
+  'invited',
+  'active',
+  'on_leave',
+  'suspended',
+  'archived',
+] as const;
+export type EmployeeStatus = (typeof EMPLOYEE_STATUSES)[number];
+export const employeeStatusEnum = pgEnum('employee_status', EMPLOYEE_STATUSES);
+
+/** Contract / engagement type for an employee or a contract row (03-employees §3). */
+export const CONTRACT_TYPES = [
+  'full_time',
+  'part_time',
+  'temporary',
+  'contractor',
+  'intern',
+] as const;
+export type ContractType = (typeof CONTRACT_TYPES)[number];
+export const contractTypeEnum = pgEnum('contract_type', CONTRACT_TYPES);
+
+/** How a secondary store link is used (03-employees §3). The primary store lives on the employee row. */
+export const EMPLOYEE_STORE_RELATIONS = ['secondary', 'guest', 'peak'] as const;
+export type EmployeeStoreRelation = (typeof EMPLOYEE_STORE_RELATIONS)[number];
+export const employeeStoreRelationEnum = pgEnum(
+  'employee_store_relation',
+  EMPLOYEE_STORE_RELATIONS,
+);
+
+/** Qualification / medical validity (03-employees §8). `expiring` is derived on read (≤30d). */
+export const CREDENTIAL_STATUSES = ['valid', 'expiring', 'expired'] as const;
+export type CredentialStatus = (typeof CREDENTIAL_STATUSES)[number];
+export const credentialStatusEnum = pgEnum('credential_status', CREDENTIAL_STATUSES);
+
+/** Shift lifecycle with distinct calendar colors (04-shifts §8). */
+export const SHIFT_STATUSES = [
+  'draft',
+  'assigned',
+  'published',
+  'approved',
+  'cancelled',
+  'off',
+] as const;
+export type ShiftStatus = (typeof SHIFT_STATUSES)[number];
+export const shiftStatusEnum = pgEnum('shift_status', SHIFT_STATUSES);
+
+/** How a shift came to exist (04-shifts §3). */
+export const SHIFT_SOURCES = ['manual', 'template', 'suggested'] as const;
+export type ShiftSource = (typeof SHIFT_SOURCES)[number];
+export const shiftSourceEnum = pgEnum('shift_source', SHIFT_SOURCES);
