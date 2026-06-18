@@ -20,6 +20,10 @@ export const DEFAULT_ENTITLEMENTS: Entitlements = {
   // Demand-aware staffing suggestions (04-shifts §2, Growth+). Default-on for v0
   // so the flow is testable; flips to plan-gated when billing lands (Phase 8).
   'scheduling.suggestions': true,
+  // Anomalies module, corrections workflow, geolocation + timesheet export
+  // (05-attendance §2, Growth/Business+). Default-on for v0 so flows are
+  // testable; flips to plan-gated when billing lands (Phase 8).
+  'attendance.advanced': true,
   analytics: false,
   'permissions.overrides': false,
   'group.policies': false,

@@ -93,3 +93,56 @@ export const shiftStatusEnum = pgEnum('shift_status', SHIFT_STATUSES);
 export const SHIFT_SOURCES = ['manual', 'template', 'suggested'] as const;
 export type ShiftSource = (typeof SHIFT_SOURCES)[number];
 export const shiftSourceEnum = pgEnum('shift_source', SHIFT_SOURCES);
+
+// ── Attendance (05-attendance §3) ───────────────────────────────────────────
+/** How a punch was captured. */
+export const ATTENDANCE_METHODS = ['qr', 'manual', 'terminal'] as const;
+export type AttendanceMethod = (typeof ATTENDANCE_METHODS)[number];
+export const attendanceMethodEnum = pgEnum('attendance_method', ATTENDANCE_METHODS);
+
+/** Whether a punch arrived live or via an offline-queue flush. */
+export const ATTENDANCE_SOURCES = ['online', 'offline_sync'] as const;
+export type AttendanceSource = (typeof ATTENDANCE_SOURCES)[number];
+export const attendanceSourceEnum = pgEnum('attendance_source', ATTENDANCE_SOURCES);
+
+/** Attendance log lifecycle (05-attendance §8). */
+export const ATTENDANCE_LOG_STATUSES = ['open', 'closed', 'flagged', 'corrected'] as const;
+export type AttendanceLogStatus = (typeof ATTENDANCE_LOG_STATUSES)[number];
+export const attendanceLogStatusEnum = pgEnum('attendance_log_status', ATTENDANCE_LOG_STATUSES);
+
+/** Anomaly rule families (05-attendance §6). */
+export const ANOMALY_TYPES = [
+  'late',
+  'early_leave',
+  'missing_punch',
+  'no_show',
+  'over_hours',
+  'location_mismatch',
+] as const;
+export type AnomalyType = (typeof ANOMALY_TYPES)[number];
+export const anomalyTypeEnum = pgEnum('anomaly_type', ANOMALY_TYPES);
+
+export const ANOMALY_SEVERITIES = ['low', 'medium', 'high'] as const;
+export type AnomalySeverity = (typeof ANOMALY_SEVERITIES)[number];
+export const anomalySeverityEnum = pgEnum('anomaly_severity', ANOMALY_SEVERITIES);
+
+/** Anomaly lifecycle (05-attendance §8). */
+export const ANOMALY_STATUSES = ['open', 'in_review', 'resolved', 'dismissed'] as const;
+export type AnomalyStatus = (typeof ANOMALY_STATUSES)[number];
+export const anomalyStatusEnum = pgEnum('anomaly_status', ANOMALY_STATUSES);
+
+/** Correction-request lifecycle (05-attendance §8). */
+export const CORRECTION_STATUSES = ['requested', 'approved', 'rejected'] as const;
+export type CorrectionStatus = (typeof CORRECTION_STATUSES)[number];
+export const correctionStatusEnum = pgEnum('correction_status', CORRECTION_STATUSES);
+
+// ── Devices & Terminals (14-devices-terminals §3) ───────────────────────────
+/** Store terminal/kiosk lifecycle. */
+export const TERMINAL_STATUSES = ['pending', 'active', 'blocked'] as const;
+export type TerminalStatus = (typeof TERMINAL_STATUSES)[number];
+export const terminalStatusEnum = pgEnum('terminal_status', TERMINAL_STATUSES);
+
+/** Personal device lifecycle. */
+export const DEVICE_STATUSES = ['pending', 'registered', 'reset', 'blocked'] as const;
+export type DeviceStatus = (typeof DEVICE_STATUSES)[number];
+export const deviceStatusEnum = pgEnum('device_status', DEVICE_STATUSES);

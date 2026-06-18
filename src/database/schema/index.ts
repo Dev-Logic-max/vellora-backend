@@ -14,3 +14,5 @@ export * from './permissions';
 export * from './plans';
 export * from './audit';
 export * from './terminals';
+export * from './devices';
+export * from './attendance';
