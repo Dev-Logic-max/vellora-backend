@@ -24,6 +24,12 @@ export const DEFAULT_ENTITLEMENTS: Entitlements = {
   // (05-attendance §2, Growth/Business+). Default-on for v0 so flows are
   // testable; flips to plan-gated when billing lands (Phase 8).
   'attendance.advanced': true,
+  // Multi-step approval chains, blackout dates, accrual/carryover policies
+  // (06-leave-holidays §2, Starter/Growth+). Default-on for v0; flips to
+  // plan-gated when billing lands (Phase 8).
+  'leave.advanced': true,
+  onboarding: true,
+  transfers: true,
   analytics: false,
   'permissions.overrides': false,
   'group.policies': false,

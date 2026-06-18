@@ -146,3 +146,41 @@ export const terminalStatusEnum = pgEnum('terminal_status', TERMINAL_STATUSES);
 export const DEVICE_STATUSES = ['pending', 'registered', 'reset', 'blocked'] as const;
 export type DeviceStatus = (typeof DEVICE_STATUSES)[number];
 export const deviceStatusEnum = pgEnum('device_status', DEVICE_STATUSES);
+
+// ── Leave & Holidays (06-leave-holidays §3, §8) ─────────────────────────────
+/** Leave-request lifecycle. Multi-step chains stay `requested` until the last step approves. */
+export const LEAVE_REQUEST_STATUSES = ['requested', 'approved', 'rejected', 'cancelled'] as const;
+export type LeaveRequestStatus = (typeof LEAVE_REQUEST_STATUSES)[number];
+export const leaveRequestStatusEnum = pgEnum('leave_request_status', LEAVE_REQUEST_STATUSES);
+
+// ── Onboarding (07-onboarding §3, §8) ───────────────────────────────────────
+/** Stage a task group belongs to. */
+export const ONBOARDING_STAGES = ['pre_start', 'first_day', 'first_week', 'first_month'] as const;
+export type OnboardingStage = (typeof ONBOARDING_STAGES)[number];
+export const onboardingStageEnum = pgEnum('onboarding_stage', ONBOARDING_STAGES);
+
+/** Per-employee task assignment lifecycle. */
+export const ONBOARDING_ASSIGNMENT_STATUSES = ['pending', 'done', 'skipped'] as const;
+export type OnboardingAssignmentStatus = (typeof ONBOARDING_ASSIGNMENT_STATUSES)[number];
+export const onboardingAssignmentStatusEnum = pgEnum(
+  'onboarding_assignment_status',
+  ONBOARDING_ASSIGNMENT_STATUSES,
+);
+
+// ── Transfers (12-transfers §3, §8) ─────────────────────────────────────────
+/** Whether a transfer is a temporary loan or a permanent move. */
+export const TRANSFER_KINDS = ['temporary', 'permanent'] as const;
+export type TransferKind = (typeof TRANSFER_KINDS)[number];
+export const transferKindEnum = pgEnum('transfer_kind', TRANSFER_KINDS);
+
+/** Transfer lifecycle. Temporary ones activate, then auto-revert at the window end. */
+export const TRANSFER_STATUSES = [
+  'requested',
+  'approved',
+  'active',
+  'completed',
+  'rejected',
+  'cancelled',
+] as const;
+export type TransferStatus = (typeof TRANSFER_STATUSES)[number];
+export const transferStatusEnum = pgEnum('transfer_status', TRANSFER_STATUSES);

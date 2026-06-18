@@ -16,3 +16,6 @@ export * from './audit';
 export * from './terminals';
 export * from './devices';
 export * from './attendance';
+export * from './leave';
+export * from './onboarding';
+export * from './transfers';

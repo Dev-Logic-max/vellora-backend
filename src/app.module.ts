@@ -17,7 +17,10 @@ import { EmployeesModule } from './employees/employees.module';
 import { EntitlementsModule } from './entitlements/entitlements.module';
 import { GroupsModule } from './groups/groups.module';
 import { HealthModule } from './health/health.module';
+import { LeaveModule } from './leave/leave.module';
+import { OnboardingModule } from './onboarding/onboarding.module';
 import { SchedulingModule } from './scheduling/scheduling.module';
+import { TransfersModule } from './transfers/transfers.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { SearchModule } from './search/search.module';
 import { StoresModule } from './stores/stores.module';
@@ -45,6 +48,9 @@ import { StoresModule } from './stores/stores.module';
     SchedulingModule,
     AttendanceModule,
     DevicesModule,
+    LeaveModule,
+    OnboardingModule,
+    TransfersModule,
     SearchModule,
   ],
   providers: [
