@@ -15,6 +15,7 @@ import { EmployeesModule } from './employees/employees.module';
 import { EntitlementsModule } from './entitlements/entitlements.module';
 import { GroupsModule } from './groups/groups.module';
 import { HealthModule } from './health/health.module';
+import { SchedulingModule } from './scheduling/scheduling.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { SearchModule } from './search/search.module';
 import { StoresModule } from './stores/stores.module';
@@ -39,6 +40,7 @@ import { StoresModule } from './stores/stores.module';
     GroupsModule,
     StoresModule,
     EmployeesModule,
+    SchedulingModule,
     SearchModule,
   ],
   providers: [

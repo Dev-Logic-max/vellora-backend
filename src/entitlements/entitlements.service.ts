@@ -17,6 +17,9 @@ export const DEFAULT_ENTITLEMENTS: Entitlements = {
   // Import/export, qualifications & medicals (03-employees §2). Default-on for v0
   // so the flows are testable; flips to plan-gated when billing lands (Phase 8).
   'employee.advanced': true,
+  // Demand-aware staffing suggestions (04-shifts §2, Growth+). Default-on for v0
+  // so the flow is testable; flips to plan-gated when billing lands (Phase 8).
+  'scheduling.suggestions': true,
   analytics: false,
   'permissions.overrides': false,
   'group.policies': false,

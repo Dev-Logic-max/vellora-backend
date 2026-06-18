@@ -29,6 +29,13 @@
       "when": 1781776267347,
       "tag": "0003_phase2_employee_stores_cleanup",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1781779180915,
+      "tag": "0004_phase3_scheduling",
+      "breakpoints": true
     }
   ]
 }
