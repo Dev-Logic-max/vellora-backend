@@ -6,8 +6,9 @@ import { IS_PUBLIC_KEY } from './public.decorator';
 
 /**
  * Validates the `Authorization: Bearer <jwt>` header via AuthService and
- * attaches the resulting principal to `req.user`. Routes/handlers marked with
- * `@Public()` bypass the check.
+ * attaches the resolved principal (identity + memberships + active tenant) to
+ * `req.user`. An optional `x-company-id` header selects among the user's own
+ * memberships. Routes/handlers marked `@Public()` bypass the check.
  */
 @Injectable()
 export class SupabaseAuthGuard implements CanActivate {
@@ -31,7 +32,8 @@ export class SupabaseAuthGuard implements CanActivate {
       throw new UnauthorizedException('Missing bearer token.');
     }
 
-    request.user = await this.authService.validateAccessToken(token);
+    const requestedCompanyId = this.readCompanyHeader(request);
+    request.user = await this.authService.authenticate(token, requestedCompanyId);
     return true;
   }
 
@@ -42,5 +44,13 @@ export class SupabaseAuthGuard implements CanActivate {
     }
     const [scheme, value] = header.split(' ');
     return scheme?.toLowerCase() === 'bearer' && value ? value : undefined;
+  }
+
+  private readCompanyHeader(request: Request): string | undefined {
+    const value = request.headers['x-company-id'];
+    if (Array.isArray(value)) {
+      return value[0];
+    }
+    return typeof value === 'string' && value.length > 0 ? value : undefined;
   }
 }
