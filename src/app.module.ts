@@ -2,9 +2,11 @@ import { Module } from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ZodValidationPipe } from 'nestjs-zod';
+import { AttendanceModule } from './attendance/attendance.module';
 import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
 import { CommonModule } from './common/common.module';
+import { DevicesModule } from './devices/devices.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { TenantInterceptor } from './common/tenant/tenant.interceptor';
 import configuration from './config/configuration';
@@ -41,6 +43,8 @@ import { StoresModule } from './stores/stores.module';
     StoresModule,
     EmployeesModule,
     SchedulingModule,
+    AttendanceModule,
+    DevicesModule,
     SearchModule,
   ],
   providers: [

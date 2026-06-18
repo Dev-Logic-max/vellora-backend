@@ -2,7 +2,12 @@ import { index, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { companies } from './companies';
 import { stores } from './stores';
 
-/** Stub: store kiosk identity (Phase 4 Devices/Terminals fleshes this out). */
+/**
+ * A store kiosk/PC/tablet that displays the rotating clock-in QR
+ * (14-devices-terminals §3). `status` holds a TerminalStatus value
+ * ('pending' | 'active' | 'blocked'); `qrSecret` rotates so a stale QR stops
+ * working. Tenant-scoped + RLS on company_id.
+ */
 export const terminals = pgTable(
   'terminals',
   {
@@ -14,10 +19,14 @@ export const terminals = pgTable(
       .notNull()
       .references(() => stores.id, { onDelete: 'cascade' }),
     label: text('label').notNull(),
-    status: text('status').notNull().default('inactive'),
+    status: text('status').notNull().default('pending'),
+    qrSecret: text('qr_secret'),
+    qrRotatedAt: timestamp('qr_rotated_at', { withTimezone: true }),
+    lastSeen: timestamp('last_seen', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
   (table) => [index('terminals_company_id_idx').on(table.companyId)],
 );
 
 export type Terminal = typeof terminals.$inferSelect;
+export type NewTerminal = typeof terminals.$inferInsert;
