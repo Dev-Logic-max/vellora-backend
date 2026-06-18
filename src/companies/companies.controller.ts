@@ -1,20 +1,26 @@
-import { Body, Controller, Get, Patch, Post, UseGuards } from '@nestjs/common';
+import {
+  Body,
+  Controller,
+  Get,
+  Param,
+  ParseUUIDPipe,
+  Patch,
+  Post,
+  UseGuards,
+} from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CompanyId } from '../common/decorators/company-id.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { RequirePermission } from '../common/decorators/require-permission.decorator';
 import { Roles } from '../common/decorators/roles.decorator';
 import { RolesGuard } from '../common/guards/roles.guard';
 import { TenantGuard } from '../common/tenant/tenant.guard';
+import { PermissionGuard } from '../permissions/permission.guard';
 import type { Company } from '../database/schema';
 import { CompaniesService } from './companies.service';
 import { CreateCompanyDto } from './dto/create-company.dto';
 import { UpdateCompanyDto } from './dto/update-company.dto';
 
-/**
- * Thin controller — delegates to CompaniesService. Guarded by the global auth
- * guard; tenant-scoped routes add TenantGuard (so `companyId` is present) and
- * role checks where mutation is owner-only.
- */
 @ApiTags('companies')
 @ApiBearerAuth()
 @Controller('companies')
@@ -27,6 +33,12 @@ export class CompaniesController {
     return this.companiesService.createWithOwner(dto, userId);
   }
 
+  /** Companies the caller belongs to (across tenants). */
+  @Get()
+  list(@CurrentUser('userId') userId: string) {
+    return this.companiesService.listForUser(userId);
+  }
+
   @Get('current')
   @UseGuards(TenantGuard)
   @ApiOperation({ summary: "The caller's active company (RLS-scoped)" })
@@ -37,8 +49,39 @@ export class CompaniesController {
   @Patch('current')
   @UseGuards(TenantGuard, RolesGuard)
   @Roles('owner')
-  @ApiOperation({ summary: "Update the caller's active company (owner only)" })
-  update(@CompanyId() companyId: string, @Body() dto: UpdateCompanyDto): Promise<Company> {
-    return this.companiesService.updateCurrent(companyId, dto);
+  update(
+    @CompanyId() companyId: string,
+    @CurrentUser('userId') userId: string,
+    @Body() dto: UpdateCompanyDto,
+  ): Promise<Company> {
+    return this.companiesService.update(companyId, userId, dto);
+  }
+
+  @Get(':id')
+  getById(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    return this.companiesService.getById(id, userId);
+  }
+
+  @Get(':id/usage')
+  usage(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    return this.companiesService.usage(id, userId);
+  }
+
+  @Patch(':id')
+  @UseGuards(TenantGuard, PermissionGuard)
+  @RequirePermission('companies')
+  patch(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') userId: string,
+    @Body() dto: UpdateCompanyDto,
+  ) {
+    return this.companiesService.update(id, userId, dto);
+  }
+
+  @Post(':id/deactivate')
+  @UseGuards(TenantGuard, PermissionGuard)
+  @RequirePermission('companies')
+  deactivate(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
+    return this.companiesService.deactivate(id, userId);
   }
 }

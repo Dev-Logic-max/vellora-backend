@@ -1,5 +1,5 @@
-import { relations } from 'drizzle-orm';
-import { pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
+import { relations, sql } from 'drizzle-orm';
+import { jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { companyStatusEnum } from './enums';
 import { memberships } from './memberships';
 
@@ -18,6 +18,11 @@ export const companies = pgTable('companies', {
   timezone: text('timezone').notNull().default('UTC'),
   status: companyStatusEnum('status').notNull().default('active'),
   planId: uuid('plan_id'),
+  logoUrl: text('logo_url'),
+  headOfficeAddress: text('head_office_address'),
+  offices: jsonb('offices')
+    .notNull()
+    .default(sql`'[]'::jsonb`),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .defaultNow()
