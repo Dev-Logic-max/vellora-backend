@@ -8,6 +8,7 @@ export * from './users';
 export * from './memberships';
 export * from './groups';
 export * from './stores';
+export * from './employees';
 export * from './permissions';
 export * from './plans';
 export * from './audit';
