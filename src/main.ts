@@ -9,7 +9,9 @@ import { AppModule } from './app.module';
 import type { AppConfig } from './config/configuration';
 
 async function bootstrap(): Promise<void> {
-  const app = await NestFactory.create(AppModule, { bufferLogs: false });
+  // rawBody so the Stripe webhook controller can verify the signature against
+  // the exact bytes Stripe signed (Nest still parses JSON for every other route).
+  const app = await NestFactory.create(AppModule, { bufferLogs: false, rawBody: true });
   const config: ConfigService<AppConfig, true> = app.get(ConfigService);
 
   const corsOrigins = config.get('corsOrigins', { infer: true });

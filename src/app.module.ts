@@ -5,6 +5,7 @@ import { ZodValidationPipe } from 'nestjs-zod';
 import { AttendanceModule } from './attendance/attendance.module';
 import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
+import { BillingModule } from './billing/billing.module';
 import { CommonModule } from './common/common.module';
 import { DevicesModule } from './devices/devices.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -62,6 +63,7 @@ import { StoresModule } from './stores/stores.module';
     DocumentsModule,
     MessagingModule,
     SearchModule,
+    BillingModule,
   ],
   providers: [
     // Validates request DTOs declared with `createZodDto`; passes everything

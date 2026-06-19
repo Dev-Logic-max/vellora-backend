@@ -7,6 +7,7 @@ import {
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import type { AppConfig } from '../config/configuration';
+import { BillingService } from '../billing/billing.service';
 import { TenantContextService } from '../common/tenant/tenant-context.service';
 import type { Employee, NewEmployee } from '../database/schema';
 import { parseEmployeeCsv, toEmployeeCsv } from './employee-csv';
@@ -37,6 +38,7 @@ export class EmployeesService {
     private readonly repo: EmployeesRepository,
     private readonly tenant: TenantContextService,
     private readonly config: ConfigService<AppConfig, true>,
+    private readonly billing: BillingService,
   ) {}
 
   /** Store ids the caller may see, or null for "all company stores". */
@@ -96,6 +98,7 @@ export class EmployeesService {
   }
 
   async create(companyId: string, dto: CreateEmployeeDto): Promise<Employee> {
+    await this.billing.assertWithinLimit(companyId, 'employees');
     if (dto.primaryStoreId) this.assertStoreInScope(dto.primaryStoreId);
     const { secondaryStores, uniqueCode, ...rest } = dto;
     const code = uniqueCode ?? (await this.nextCode(companyId, dto.primaryStoreId));
@@ -177,6 +180,8 @@ export class EmployeesService {
     if (rows.length === 0) {
       throw new BadRequestException('No valid rows found (need firstName + lastName).');
     }
+    // Enforce the plan cap for the whole batch up front (one check, not per-row).
+    await this.billing.assertWithinLimit(companyId, 'employees', rows.length);
     let created = 0;
     const errors: string[] = [];
     for (const row of rows) {

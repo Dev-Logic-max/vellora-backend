@@ -26,6 +26,19 @@ const envSchema = z.object({
   CLOUDINARY_API_SECRET: z.string().optional(),
 
   REDIS_URL: z.string().optional(),
+
+  RESEND_API_KEY: z.string().optional(),
+  EMAIL_FROM: z.string().optional(),
+
+  // Stripe (Phase 8) — server-only. Optional so the app boots without billing.
+  STRIPE_SECRET_KEY: z.string().optional(),
+  STRIPE_WEBHOOK_SECRET: z.string().optional(),
+
+  // Gemini (Phase 9 AI) — server-only.
+  GEMINI_API_KEY: z.string().optional(),
+
+  // Sentry (Phase 9 hardening) — server-only.
+  SENTRY_DSN: z.string().optional(),
 });
 
 export type EnvVars = z.infer<typeof envSchema>;

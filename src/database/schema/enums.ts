@@ -234,3 +234,14 @@ export const EMAIL_STATUSES = [
 ] as const;
 export type EmailStatus = (typeof EMAIL_STATUSES)[number];
 export const emailStatusEnum = pgEnum('email_status', EMAIL_STATUSES);
+
+// ── Billing & Subscriptions (15-billing §8) ─────────────────────────────────
+/** Subscription lifecycle, mirrored from Stripe. */
+export const SUBSCRIPTION_STATUSES = ['trialing', 'active', 'past_due', 'canceled'] as const;
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
+export const subscriptionStatusEnum = pgEnum('subscription_status', SUBSCRIPTION_STATUSES);
+
+/** Invoice lifecycle, mirrored from Stripe. */
+export const INVOICE_STATUSES = ['draft', 'open', 'paid', 'void'] as const;
+export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
+export const invoiceStatusEnum = pgEnum('invoice_status', INVOICE_STATUSES);

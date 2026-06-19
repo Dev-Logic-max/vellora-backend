@@ -64,6 +64,13 @@
       "when": 1781953825674,
       "tag": "0008_phase7_messaging_email",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1781953925674,
+      "tag": "0009_phase8_billing",
+      "breakpoints": true
     }
   ]
 }

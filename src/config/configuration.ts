@@ -34,6 +34,18 @@ export interface AppConfig {
     apiKey?: string;
     from: string;
   };
+  stripe: {
+    /** Secret key — server only. When unset, billing degrades to a stub. */
+    secretKey?: string;
+    /** Webhook signing secret used to verify inbound events. */
+    webhookSecret?: string;
+  };
+  /** Server-only Gemini key (Phase 9 AI). Unset → AI features stub out. */
+  gemini: {
+    apiKey?: string;
+  };
+  /** Optional Sentry DSN for error tracking (server only). */
+  sentryDsn?: string;
   /** Public web app origin, used to build deep links in notifications/emails. */
   appUrl: string;
 }
@@ -73,6 +85,14 @@ export default (): AppConfig => {
       apiKey: process.env.RESEND_API_KEY,
       from: process.env.EMAIL_FROM ?? 'Vellora <noreply@vellora.app>',
     },
+    stripe: {
+      secretKey: process.env.STRIPE_SECRET_KEY,
+      webhookSecret: process.env.STRIPE_WEBHOOK_SECRET,
+    },
+    gemini: {
+      apiKey: process.env.GEMINI_API_KEY,
+    },
+    sentryDsn: process.env.SENTRY_DSN,
     appUrl: (corsOrigins[0] ?? 'http://localhost:3000').replace(/\/$/, ''),
   };
 };
