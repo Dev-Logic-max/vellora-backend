@@ -184,3 +184,53 @@ export const TRANSFER_STATUSES = [
 ] as const;
 export type TransferStatus = (typeof TRANSFER_STATUSES)[number];
 export const transferStatusEnum = pgEnum('transfer_status', TRANSFER_STATUSES);
+
+// ── Documents (08-documents §3, §8) ─────────────────────────────────────────
+/** Whether a folder holds company-wide files or one employee's files. */
+export const DOC_FOLDER_KINDS = ['company', 'employee'] as const;
+export type DocFolderKind = (typeof DOC_FOLDER_KINDS)[number];
+export const docFolderKindEnum = pgEnum('doc_folder_kind', DOC_FOLDER_KINDS);
+
+/** Who may see a document: everyone in the company, a role, or one employee. */
+export const DOCUMENT_VISIBILITIES = ['company', 'role', 'employee'] as const;
+export type DocumentVisibility = (typeof DOCUMENT_VISIBILITIES)[number];
+export const documentVisibilityEnum = pgEnum('document_visibility', DOCUMENT_VISIBILITIES);
+
+/** Document lifecycle. `expiring`/`expired` are set by the expiry scan job. */
+export const DOCUMENT_STATUSES = ['active', 'expiring', 'expired', 'trashed'] as const;
+export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
+export const documentStatusEnum = pgEnum('document_status', DOCUMENT_STATUSES);
+
+/** E-signature request lifecycle (08-documents §8). */
+export const SIGNATURE_STATUSES = ['requested', 'signed', 'declined'] as const;
+export type SignatureStatus = (typeof SIGNATURE_STATUSES)[number];
+export const signatureStatusEnum = pgEnum('signature_status', SIGNATURE_STATUSES);
+
+// ── Notifications (11-notifications §3) ──────────────────────────────────────
+/** Notification priority — drives the dropdown dot color + live-toast behavior. */
+export const NOTIF_PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const;
+export type NotifPriority = (typeof NOTIF_PRIORITIES)[number];
+export const notifPriorityEnum = pgEnum('notif_priority', NOTIF_PRIORITIES);
+
+/** Per-category digest cadence (paid). */
+export const DIGEST_FREQS = ['off', 'daily', 'weekly'] as const;
+export type DigestFreq = (typeof DIGEST_FREQS)[number];
+export const digestFreqEnum = pgEnum('digest_freq', DIGEST_FREQS);
+
+// ── Messaging & Email (13-messaging §3, §8) ─────────────────────────────────
+/** A conversation is either a direct message or a named channel. */
+export const CONVERSATION_KINDS = ['dm', 'channel'] as const;
+export type ConversationKind = (typeof CONVERSATION_KINDS)[number];
+export const conversationKindEnum = pgEnum('conversation_kind', CONVERSATION_KINDS);
+
+/** Email message send lifecycle (13-messaging §8). */
+export const EMAIL_STATUSES = [
+  'draft',
+  'queued',
+  'sent',
+  'delivered',
+  'bounced',
+  'failed',
+] as const;
+export type EmailStatus = (typeof EMAIL_STATUSES)[number];
+export const emailStatusEnum = pgEnum('email_status', EMAIL_STATUSES);

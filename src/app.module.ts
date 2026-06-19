@@ -13,12 +13,17 @@ import configuration from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { CompaniesModule } from './companies/companies.module';
 import { DatabaseModule } from './database/database.module';
+import { DocumentsModule } from './documents/documents.module';
 import { EmployeesModule } from './employees/employees.module';
 import { EntitlementsModule } from './entitlements/entitlements.module';
 import { GroupsModule } from './groups/groups.module';
 import { HealthModule } from './health/health.module';
+import { InfraModule } from './infra/infra.module';
 import { LeaveModule } from './leave/leave.module';
+import { MessagingModule } from './messaging/messaging.module';
+import { NotificationsModule } from './notifications/notifications.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
+import { RealtimeModule } from './realtime/realtime.module';
 import { SchedulingModule } from './scheduling/scheduling.module';
 import { TransfersModule } from './transfers/transfers.module';
 import { PermissionsModule } from './permissions/permissions.module';
@@ -37,6 +42,8 @@ import { StoresModule } from './stores/stores.module';
     DatabaseModule,
     CommonModule,
     AuditModule,
+    InfraModule,
+    RealtimeModule,
     PermissionsModule,
     EntitlementsModule,
     AuthModule,
@@ -51,6 +58,9 @@ import { StoresModule } from './stores/stores.module';
     LeaveModule,
     OnboardingModule,
     TransfersModule,
+    NotificationsModule,
+    DocumentsModule,
+    MessagingModule,
     SearchModule,
   ],
   providers: [

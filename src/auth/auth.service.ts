@@ -1,7 +1,7 @@
 import { Injectable, Logger, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { and, eq } from 'drizzle-orm';
-import { decodeJwt, jwtVerify } from 'jose';
+import { createRemoteJWKSet, decodeJwt, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import type { AppConfig } from '../config/configuration';
 import { DatabaseService } from '../database/database.service';
 import { memberships, users, type User } from '../database/schema';
@@ -25,12 +25,18 @@ import type { AuthenticatedUser, MembershipContext } from '../common/types/authe
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);
   private readonly jwtSecret?: string;
+  /** JWKS for projects using asymmetric (ES256/RS256) signing keys. Cached by jose. */
+  private readonly jwks?: JWTVerifyGetKey;
 
   constructor(
     private readonly config: ConfigService<AppConfig, true>,
     private readonly databaseService: DatabaseService,
   ) {
     this.jwtSecret = this.config.get('supabase.jwtSecret', { infer: true });
+    const supabaseUrl = this.config.get('supabase.url', { infer: true });
+    if (supabaseUrl) {
+      this.jwks = createRemoteJWKSet(new URL(`${supabaseUrl}/auth/v1/.well-known/jwks.json`));
+    }
   }
 
   async authenticate(token: string, requestedCompanyId?: string): Promise<AuthenticatedUser> {
@@ -60,23 +66,58 @@ export class AuthService {
   }
 
   private async verifyOrDecode(token: string): Promise<Record<string, unknown>> {
-    if (!this.jwtSecret) {
-      this.logger.warn(
-        'SUPABASE_JWT_SECRET is not set — decoding JWT WITHOUT signature verification (dev only).',
-      );
+    // Supabase signs access tokens with either asymmetric keys (ES256/RS256 via
+    // JWKS) or the legacy symmetric secret (HS256). Try whichever matches the
+    // token's `alg`; only fall back to unverified decode when nothing is set.
+    const alg = this.tokenAlg(token);
+
+    if (alg && alg !== 'HS256' && this.jwks) {
       try {
-        return decodeJwt(token);
+        const { payload } = await jwtVerify(token, this.jwks);
+        return payload;
       } catch {
-        throw new UnauthorizedException('Malformed access token.');
+        throw new UnauthorizedException('Invalid or expired access token.');
       }
     }
 
+    if (this.jwtSecret) {
+      try {
+        const secret = new TextEncoder().encode(this.jwtSecret);
+        const { payload } = await jwtVerify(token, secret, { algorithms: ['HS256'] });
+        return payload;
+      } catch {
+        // An HS256 secret is set but the token is asymmetric → try JWKS too.
+        if (this.jwks) {
+          try {
+            const { payload } = await jwtVerify(token, this.jwks);
+            return payload;
+          } catch {
+            throw new UnauthorizedException('Invalid or expired access token.');
+          }
+        }
+        throw new UnauthorizedException('Invalid or expired access token.');
+      }
+    }
+
+    this.logger.warn(
+      'No SUPABASE_JWT_SECRET or JWKS available — decoding JWT WITHOUT verification (dev only).',
+    );
     try {
-      const secret = new TextEncoder().encode(this.jwtSecret);
-      const { payload } = await jwtVerify(token, secret, { algorithms: ['HS256'] });
-      return payload;
+      return decodeJwt(token);
     } catch {
-      throw new UnauthorizedException('Invalid or expired access token.');
+      throw new UnauthorizedException('Malformed access token.');
+    }
+  }
+
+  /** Reads the JWT header `alg` without verifying. */
+  private tokenAlg(token: string): string | undefined {
+    try {
+      const header = JSON.parse(Buffer.from(token.split('.')[0], 'base64url').toString('utf8')) as {
+        alg?: string;
+      };
+      return header.alg;
+    } catch {
+      return undefined;
     }
   }
 

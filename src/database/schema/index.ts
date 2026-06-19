@@ -19,3 +19,6 @@ export * from './attendance';
 export * from './leave';
 export * from './onboarding';
 export * from './transfers';
+export * from './documents';
+export * from './notifications';
+export * from './messaging';

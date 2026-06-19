@@ -13,6 +13,9 @@ export const DEFAULT_ENTITLEMENTS: Entitlements = {
   attendance: true,
   leave: true,
   documents: true,
+  // Messaging + email tab (13-messaging §2, Starter+). Default-on for v1 so the
+  // flows are testable; flips to plan-gated when billing lands (Phase 8).
+  messaging: true,
   'store.finances': false,
   // Import/export, qualifications & medicals (03-employees §2). Default-on for v0
   // so the flows are testable; flips to plan-gated when billing lands (Phase 8).

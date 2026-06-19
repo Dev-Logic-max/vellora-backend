@@ -18,6 +18,8 @@ export interface AppConfig {
     anonKey?: string;
     serviceRoleKey?: string;
     jwtSecret?: string;
+    /** Private Storage bucket for documents (signed URLs only). */
+    docsBucket: string;
   };
   cloudinary: {
     cloudName?: string;
@@ -27,6 +29,13 @@ export interface AppConfig {
   redis: {
     url?: string;
   };
+  email: {
+    /** Resend API key — when unset, email degrades to a logged no-op. */
+    apiKey?: string;
+    from: string;
+  };
+  /** Public web app origin, used to build deep links in notifications/emails. */
+  appUrl: string;
 }
 
 export default (): AppConfig => {
@@ -50,6 +59,7 @@ export default (): AppConfig => {
       anonKey: process.env.SUPABASE_ANON_KEY,
       serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
       jwtSecret: process.env.SUPABASE_JWT_SECRET,
+      docsBucket: process.env.SUPABASE_DOCS_BUCKET ?? 'documents',
     },
     cloudinary: {
       cloudName: process.env.CLOUDINARY_CLOUD_NAME,
@@ -59,5 +69,10 @@ export default (): AppConfig => {
     redis: {
       url: process.env.REDIS_URL,
     },
+    email: {
+      apiKey: process.env.RESEND_API_KEY,
+      from: process.env.EMAIL_FROM ?? 'Vellora <noreply@vellora.app>',
+    },
+    appUrl: (corsOrigins[0] ?? 'http://localhost:3000').replace(/\/$/, ''),
   };
 };

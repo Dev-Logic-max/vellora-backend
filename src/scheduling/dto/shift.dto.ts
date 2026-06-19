@@ -2,7 +2,16 @@ import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 import { SHIFT_SOURCES, SHIFT_STATUSES } from '../../database/schema/enums';
 
-const isoDateTime = z.coerce.date();
+/**
+ * ISO datetime input → Date. Modeled as a string so it is representable in
+ * OpenAPI JSON Schema (zod v4 cannot serialize a raw z.date()), while the
+ * service layer still receives a Date.
+ */
+const isoDateTime = z
+  .string()
+  .datetime({ offset: true })
+  .or(z.string().regex(/^\d{4}-\d{2}-\d{2}$/))
+  .transform((s) => new Date(s));
 const ymd = z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD');
 
 export const listShiftsSchema = z.object({
