@@ -78,6 +78,13 @@
       "when": 1781954025674,
       "tag": "0010_phase9_recruiting",
       "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "7",
+      "when": 1781954125674,
+      "tag": "0011_platform_design_settings",
+      "breakpoints": true
     }
   ]
 }

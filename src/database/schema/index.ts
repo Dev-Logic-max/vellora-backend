@@ -23,3 +23,4 @@ export * from './documents';
 export * from './notifications';
 export * from './messaging';
 export * from './recruiting';
+export * from './platform-settings';

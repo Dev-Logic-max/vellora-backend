@@ -30,6 +30,7 @@ import { RealtimeModule } from './realtime/realtime.module';
 import { SchedulingModule } from './scheduling/scheduling.module';
 import { TransfersModule } from './transfers/transfers.module';
 import { PermissionsModule } from './permissions/permissions.module';
+import { PlatformDesignModule } from './platform-design/platform-design.module';
 import { SearchModule } from './search/search.module';
 import { StoresModule } from './stores/stores.module';
 
@@ -68,6 +69,7 @@ import { StoresModule } from './stores/stores.module';
     SearchModule,
     BillingModule,
     RecruitingModule,
+    PlatformDesignModule,
   ],
   providers: [
     // Validates request DTOs declared with `createZodDto`; passes everything
