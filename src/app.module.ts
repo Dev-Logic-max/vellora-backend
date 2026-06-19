@@ -3,9 +3,11 @@ import { ConfigModule } from '@nestjs/config';
 import { APP_FILTER, APP_INTERCEPTOR, APP_PIPE } from '@nestjs/core';
 import { ZodValidationPipe } from 'nestjs-zod';
 import { AttendanceModule } from './attendance/attendance.module';
+import { AiModule } from './ai/ai.module';
 import { AuthModule } from './auth/auth.module';
 import { AuditModule } from './audit/audit.module';
 import { BillingModule } from './billing/billing.module';
+import { RecruitingModule } from './recruiting/recruiting.module';
 import { CommonModule } from './common/common.module';
 import { DevicesModule } from './devices/devices.module';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
@@ -44,6 +46,7 @@ import { StoresModule } from './stores/stores.module';
     CommonModule,
     AuditModule,
     InfraModule,
+    AiModule,
     RealtimeModule,
     PermissionsModule,
     EntitlementsModule,
@@ -64,6 +67,7 @@ import { StoresModule } from './stores/stores.module';
     MessagingModule,
     SearchModule,
     BillingModule,
+    RecruitingModule,
   ],
   providers: [
     // Validates request DTOs declared with `createZodDto`; passes everything

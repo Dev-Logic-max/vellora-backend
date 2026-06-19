@@ -22,3 +22,4 @@ export * from './transfers';
 export * from './documents';
 export * from './notifications';
 export * from './messaging';
+export * from './recruiting';

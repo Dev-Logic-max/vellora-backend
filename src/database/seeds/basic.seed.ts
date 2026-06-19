@@ -47,7 +47,19 @@ async function run(ctx: SeedContext): Promise<void> {
   if (!company) {
     [company] = await db
       .insert(schema.companies)
-      .values({ name: COMPANY_NAME, country: 'US', currency: 'USD', timezone: 'America/New_York' })
+      .values({
+        name: COMPANY_NAME,
+        slug: 'vellora-demo',
+        country: 'US',
+        currency: 'USD',
+        timezone: 'America/New_York',
+      })
+      .returning();
+  } else if (!company.slug) {
+    [company] = await db
+      .update(schema.companies)
+      .set({ slug: 'vellora-demo' })
+      .where(eq(schema.companies.id, company.id))
       .returning();
   }
   const companyId = company.id;
@@ -360,6 +372,42 @@ async function run(ctx: SeedContext): Promise<void> {
       target: schema.subscriptions.companyId,
       set: { planId: planIdByKey.get('growth')!, status: 'trialing' },
     });
+
+  log('→ recruiting…');
+  const existingJob = await db.query.jobs.findFirst({
+    where: eq(schema.jobs.companyId, companyId),
+  });
+  if (!existingJob) {
+    const [job] = await db
+      .insert(schema.jobs)
+      .values({
+        companyId,
+        storeId: storeIds[0],
+        title: 'Store Associate',
+        slug: 'store-associate',
+        description:
+          'Front-of-house retail role at our Downtown store. Friendly, reliable, weekends.',
+        employmentType: 'part_time',
+        location: 'Downtown',
+        status: 'published',
+        published: true,
+        screenerQuestions: [
+          { id: 'q1', label: 'Are you available on weekends?', required: true },
+          { id: 'q2', label: 'Years of retail experience?', required: false },
+        ],
+        createdBy: userIdByRole.get('hr'),
+      })
+      .returning();
+    await db.insert(schema.candidates).values({
+      companyId,
+      jobId: job.id,
+      name: 'Casey Candidate',
+      email: 'casey@example.com',
+      stage: 'applied',
+      source: 'careers',
+      consentAt: new Date(),
+    });
+  }
 
   log(`\n✅ Company: ${COMPANY_NAME} · password for every login: ${PASSWORD}`);
   console.table(LOGINS.map((l) => ({ role: l.role, email: l.email })));

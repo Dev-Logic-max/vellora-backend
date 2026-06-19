@@ -245,3 +245,31 @@ export const subscriptionStatusEnum = pgEnum('subscription_status', SUBSCRIPTION
 export const INVOICE_STATUSES = ['draft', 'open', 'paid', 'void'] as const;
 export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
 export const invoiceStatusEnum = pgEnum('invoice_status', INVOICE_STATUSES);
+
+// ── Recruiting / ATS (09-recruiting §3, §8) ─────────────────────────────────
+/** Job posting lifecycle. `published` controls public careers-site visibility. */
+export const JOB_STATUSES = ['draft', 'published', 'closed'] as const;
+export type JobStatus = (typeof JOB_STATUSES)[number];
+export const jobStatusEnum = pgEnum('job_status', JOB_STATUSES);
+
+/** Pipeline stage a candidate sits in (kanban columns). */
+export const CANDIDATE_STAGES = [
+  'applied',
+  'review',
+  'interview',
+  'offer',
+  'hired',
+  'rejected',
+] as const;
+export type CandidateStage = (typeof CANDIDATE_STAGES)[number];
+export const candidateStageEnum = pgEnum('candidate_stage', CANDIDATE_STAGES);
+
+/** Interview delivery mode. */
+export const INTERVIEW_MODES = ['onsite', 'phone', 'video'] as const;
+export type InterviewMode = (typeof INTERVIEW_MODES)[number];
+export const interviewModeEnum = pgEnum('interview_mode', INTERVIEW_MODES);
+
+/** Interview lifecycle. */
+export const INTERVIEW_STATUSES = ['scheduled', 'done', 'cancelled'] as const;
+export type InterviewStatus = (typeof INTERVIEW_STATUSES)[number];
+export const interviewStatusEnum = pgEnum('interview_status', INTERVIEW_STATUSES);
