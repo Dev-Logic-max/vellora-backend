@@ -1,4 +1,4 @@
-import type { MembershipRole, ScopeType } from '../../database/schema/enums';
+import type { MembershipRole, PlatformRole, ScopeType } from '../../database/schema/enums';
 
 /** A single resolved membership the principal holds. */
 export interface MembershipContext {
@@ -29,6 +29,8 @@ export interface AuthenticatedUser {
   role?: MembershipRole;
   scopeType?: ScopeType;
   scopeIds?: string[];
+  /** Cross-tenant operator role (null/undefined for normal tenant users). */
+  platformRole?: PlatformRole | null;
 }
 
 declare global {

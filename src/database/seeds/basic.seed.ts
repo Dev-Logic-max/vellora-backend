@@ -32,10 +32,15 @@ async function run(ctx: SeedContext): Promise<void> {
   const userIdByRole = new Map<Role, string>();
   for (const l of LOGINS) {
     const uid = await ctx.ensureAuthUser(l.email, l.name, PASSWORD);
+    // The owner login doubles as a platform super_admin so /admin is testable.
+    const platformRole = l.role === 'owner' ? ('super_admin' as const) : null;
     const [user] = await db
       .insert(schema.users)
-      .values({ supabaseUid: uid, email: l.email, name: l.name })
-      .onConflictDoUpdate({ target: schema.users.supabaseUid, set: { name: l.name } })
+      .values({ supabaseUid: uid, email: l.email, name: l.name, platformRole })
+      .onConflictDoUpdate({
+        target: schema.users.supabaseUid,
+        set: { name: l.name, platformRole },
+      })
       .returning();
     userIdByRole.set(l.role, user.id);
   }
@@ -409,13 +414,176 @@ async function run(ctx: SeedContext): Promise<void> {
     });
   }
 
+  // ── bulk data (richer dataset for testing reports / usage / pipeline) ───────
+  log('→ bulk employees…');
+  const FIRST = [
+    'Aria',
+    'Ben',
+    'Cora',
+    'Dev',
+    'Esme',
+    'Finn',
+    'Gina',
+    'Hugo',
+    'Iris',
+    'Jude',
+    'Kara',
+    'Leo',
+    'Maya',
+    'Nico',
+    'Owen',
+    'Priya',
+    'Quinn',
+    'Remy',
+  ];
+  const LAST = [
+    'Adler',
+    'Bishop',
+    'Cole',
+    'Dunn',
+    'Estrada',
+    'Frost',
+    'Gomez',
+    'Hsu',
+    'Imani',
+    'Jones',
+    'Kaur',
+    'Lane',
+    'Moreno',
+    'Novak',
+    'Ortiz',
+    'Park',
+    'Reyes',
+    'Singh',
+  ];
+  const DEPTS = ['Front of House', 'Kitchen', 'Stock', 'Management'];
+  const ROLES = ['Barista', 'Cashier', 'Shift Lead', 'Cleaner', 'Cook', 'Stocker'];
+  // How many employees we want in total (incl. the 6 above).
+  const TARGET_EMPLOYEES = 24;
+  const existingCount = (
+    await db.query.employees.findMany({
+      where: eq(schema.employees.companyId, companyId),
+      columns: { id: true },
+    })
+  ).length;
+  const allEmpIds = [...empIds];
+  for (let i = existingCount; i < TARGET_EMPLOYEES; i++) {
+    const code = `EMP-${String(i + 1).padStart(3, '0')}`;
+    const storeIdx = i % storeIds.length;
+    const hireDaysAgo = 30 + ((i * 17) % 500); // spread hire dates over ~1.5y
+    const hireDate = new Date(Date.now() - hireDaysAgo * 86_400_000).toISOString().slice(0, 10);
+    // A few leavers (deleted) so turnover has signal.
+    const isLeaver = i % 9 === 0;
+    const [emp] = await db
+      .insert(schema.employees)
+      .values({
+        companyId,
+        primaryStoreId: storeIds[storeIdx],
+        uniqueCode: code,
+        firstName: FIRST[i % FIRST.length],
+        lastName: LAST[(i * 3) % LAST.length],
+        role: ROLES[i % ROLES.length],
+        department: DEPTS[i % DEPTS.length],
+        status: isLeaver ? 'archived' : 'active',
+        hireDate,
+        deletedAt: isLeaver ? new Date(Date.now() - ((i * 7) % 60) * 86_400_000) : null,
+        timezone: storeDefs[storeIdx].timezone,
+      })
+      .onConflictDoNothing()
+      .returning();
+    if (emp) allEmpIds.push(emp.id);
+  }
+
+  log('→ attendance logs (last 14 days)…');
+  const hasAttendance = await db.query.attendanceLogs.findFirst({
+    where: eq(schema.attendanceLogs.companyId, companyId),
+  });
+  if (!hasAttendance) {
+    const activeEmps = await db.query.employees.findMany({
+      where: and(eq(schema.employees.companyId, companyId), eq(schema.employees.status, 'active')),
+      columns: { id: true, primaryStoreId: true },
+    });
+    const rows: (typeof schema.attendanceLogs.$inferInsert)[] = [];
+    for (let d = 1; d <= 14; d++) {
+      const day = new Date(Date.now() - d * 86_400_000);
+      for (const emp of activeEmps) {
+        if (!emp.primaryStoreId) continue;
+        // ~70% of employees work any given day.
+        if ((emp.id.charCodeAt(0) + d) % 10 < 3) continue;
+        const clockIn = new Date(day);
+        clockIn.setUTCHours(9, emp.id.charCodeAt(1) % 30, 0, 0);
+        const clockOut = new Date(clockIn.getTime() + (7 + (d % 3)) * 3_600_000); // 7–9h
+        rows.push({
+          companyId,
+          storeId: emp.primaryStoreId,
+          employeeId: emp.id,
+          clockInUtc: clockIn,
+          clockOutUtc: clockOut,
+          method: 'qr',
+          status: 'closed',
+        });
+      }
+    }
+    // Insert in chunks to keep statements reasonable.
+    for (let i = 0; i < rows.length; i += 200) {
+      await db.insert(schema.attendanceLogs).values(rows.slice(i, i + 200));
+    }
+    log(`   ${rows.length} attendance logs`);
+  }
+
+  log('→ more candidates…');
+  const job = await db.query.jobs.findFirst({ where: eq(schema.jobs.companyId, companyId) });
+  if (job) {
+    const candCount = (
+      await db.query.candidates.findMany({
+        where: eq(schema.candidates.companyId, companyId),
+        columns: { id: true },
+      })
+    ).length;
+    if (candCount < 8) {
+      const STAGES = [
+        'applied',
+        'applied',
+        'review',
+        'review',
+        'interview',
+        'offer',
+        'hired',
+      ] as const;
+      const CANDS = [
+        'Jordan Lee',
+        'Sam Rivera',
+        'Taylor Kim',
+        'Morgan Bell',
+        'Riley Fox',
+        'Drew Shah',
+        'Alex Ono',
+      ];
+      await db.insert(schema.candidates).values(
+        CANDS.map((name, i) => ({
+          companyId,
+          jobId: job.id,
+          name,
+          email: `${name.split(' ')[0].toLowerCase()}@example.com`,
+          stage: STAGES[i],
+          source: i % 2 === 0 ? 'careers' : 'referral',
+          score: STAGES[i] === 'applied' ? null : 60 + ((i * 7) % 35),
+          consentAt: new Date(),
+        })),
+      );
+    }
+  }
+
   log(`\n✅ Company: ${COMPANY_NAME} · password for every login: ${PASSWORD}`);
   console.table(LOGINS.map((l) => ({ role: l.role, email: l.email })));
 }
 
 const basicSeed: SeedModule = {
   name: 'basic',
-  description: 'One company, 5 role logins, stores/employees + sample data in every module.',
+  description:
+    'One company, 5 role logins (owner=super_admin), 3 stores, ~24 employees, 14 days of ' +
+    'attendance logs, leave/onboarding/transfer/shift samples, 4 plans + trialing Growth sub, ' +
+    'and a recruiting pipeline (job + 8 candidates across stages). Idempotent.',
   seed: run,
 };
 

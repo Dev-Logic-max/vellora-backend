@@ -24,3 +24,5 @@ export * from './notifications';
 export * from './messaging';
 export * from './recruiting';
 export * from './platform-settings';
+export * from './reports';
+export * from './platform-admin';

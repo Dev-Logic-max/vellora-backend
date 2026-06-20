@@ -12,7 +12,7 @@ export interface ActiveDesign {
   themeKey: string;
   tokens: TokenMap;
 }
-const AURORA_DEFAULTS: ActiveDesign = { themeKey: 'aurora', tokens: {} };
+const DEFAULT_DESIGN: ActiveDesign = { themeKey: 'indigo', tokens: {} };
 
 /**
  * Platform design settings (design module) — GLOBAL config, read on the
@@ -27,17 +27,17 @@ export class PlatformDesignService {
 
   constructor(private readonly db: DatabaseService) {}
 
-  /** Current active design (Aurora defaults if unset/unavailable). */
+  /** Current active design (default accent if unset/unavailable). */
   async get(): Promise<ActiveDesign> {
     try {
       const row = await this.db.db.query.platformDesignSettings.findFirst({
         where: eq(platformDesignSettings.key, SINGLETON_KEY),
       });
-      if (!row) return AURORA_DEFAULTS;
+      if (!row) return DEFAULT_DESIGN;
       return { themeKey: row.themeKey, tokens: (row.tokens ?? {}) as TokenMap };
     } catch (err) {
-      this.logger.warn(`design settings unavailable, serving Aurora defaults: ${String(err)}`);
-      return AURORA_DEFAULTS;
+      this.logger.warn(`design settings unavailable, serving defaults: ${String(err)}`);
+      return DEFAULT_DESIGN;
     }
   }
 
@@ -55,8 +55,8 @@ export class PlatformDesignService {
     return this.get();
   }
 
-  /** Restore pure Aurora (clears overrides). */
+  /** Restore the default accent (clears overrides). */
   async reset(userId?: string): Promise<ActiveDesign> {
-    return this.update({ themeKey: 'aurora', tokens: {} }, userId);
+    return this.update({ themeKey: 'indigo', tokens: {} }, userId);
   }
 }

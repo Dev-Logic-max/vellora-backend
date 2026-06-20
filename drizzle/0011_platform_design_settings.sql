@@ -5,7 +5,7 @@
 CREATE TABLE "platform_design_settings" (
 	"id" uuid PRIMARY KEY DEFAULT gen_random_uuid() NOT NULL,
 	"key" text DEFAULT 'default' NOT NULL,
-	"theme_key" text DEFAULT 'aurora' NOT NULL,
+	"theme_key" text DEFAULT 'indigo' NOT NULL,
 	"tokens" jsonb DEFAULT '{}'::jsonb NOT NULL,
 	"updated_by" uuid,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
@@ -15,5 +15,5 @@ CREATE TABLE "platform_design_settings" (
 
 -- Seed the singleton (pure Aurora; empty override map).
 INSERT INTO "platform_design_settings" ("key", "theme_key", "tokens")
-VALUES ('default', 'aurora', '{}'::jsonb)
+VALUES ('default', 'indigo', '{}'::jsonb)
 ON CONFLICT ("key") DO NOTHING;

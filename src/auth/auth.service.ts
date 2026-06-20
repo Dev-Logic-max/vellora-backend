@@ -62,6 +62,7 @@ export class AuthService {
       role: active?.role,
       scopeType: active?.scopeType,
       scopeIds: active?.scopeIds,
+      platformRole: user.platformRole,
     };
   }
 

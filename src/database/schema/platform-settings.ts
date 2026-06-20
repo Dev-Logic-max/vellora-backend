@@ -13,8 +13,8 @@ export const platformDesignSettings = pgTable('platform_design_settings', {
   id: uuid('id').defaultRandom().primaryKey(),
   /** Singleton discriminator — always 'default' for the active platform design. */
   key: text('key').notNull().unique().default('default'),
-  /** Active theme key (e.g. 'aurora'); extra theme packs come later (plan-gated). */
-  themeKey: text('theme_key').notNull().default('aurora'),
+  /** Active accent preset (indigo/violet/blue/teal/green/orange/rose); base stays white. */
+  themeKey: text('theme_key').notNull().default('indigo'),
   /** Sparse semantic-token overrides `{ '--token': 'R G B' }`; {} = pure Aurora. */
   tokens: jsonb('tokens').notNull().default({}),
   /** User id of the last editor (no FK — platform plane is cross-tenant). */

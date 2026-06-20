@@ -7,7 +7,7 @@ import {
 import { randomUUID } from 'node:crypto';
 import { GeminiService } from '../ai/gemini.service';
 import { TenantContextService } from '../common/tenant/tenant-context.service';
-import type { Candidate, Interview, Job } from '../database/schema';
+import type { Candidate, Interview, Job, ParsedResume } from '../database/schema';
 import { MailerService } from '../infra/mailer.service';
 import { QueueService } from '../infra/queue.service';
 import { NotificationsService } from '../notifications/notifications.service';
@@ -153,17 +153,37 @@ export class RecruitingService {
     return { url: await this.storage.createSignedDownload(candidate.resumeKey) };
   }
 
-  // ── AI hooks (Gemini; stub until P9-C key) ──────────────────────────────────
+  // ── AI hooks (Gemini; graceful-degrades to stubs without a key) ─────────────
   async scoreCandidate(companyId: string, id: string): Promise<Candidate> {
     const candidate = await this.getCandidate(companyId, id);
     const job = await this.repo.getJob(companyId, candidate.jobId);
+
+    // Parse the resume on first score (when AI is available + a resume exists).
+    let parsed: ParsedResume | null = candidate.parsed;
+    if (!parsed && candidate.resumeKey && this.gemini.enabled) {
+      const text = await this.fetchResumeText(candidate.resumeKey);
+      if (text) parsed = (await this.gemini.parseResume(text)) as ParsedResume;
+    }
+
     const { score } = await this.gemini.scoreCandidate(
       job?.description ?? '',
-      JSON.stringify(candidate.parsed ?? { name: candidate.name }),
+      JSON.stringify(parsed ?? { name: candidate.name }),
     );
-    const updated = await this.repo.updateCandidate(companyId, id, { score });
+    const updated = await this.repo.updateCandidate(companyId, id, { score, parsed });
     if (!updated) throw new NotFoundException('Candidate not found.');
     return updated;
+  }
+
+  /** Best-effort fetch of resume bytes as text via a signed URL (no-op in stub). */
+  private async fetchResumeText(resumeKey: string): Promise<string | null> {
+    try {
+      const url = await this.storage.createSignedDownload(resumeKey);
+      const res = await fetch(url);
+      if (!res.ok) return null;
+      return (await res.text()).slice(0, 20_000);
+    } catch {
+      return null;
+    }
   }
 
   async draftJobDescription(input: { title: string; notes?: string }): Promise<{ text: string }> {

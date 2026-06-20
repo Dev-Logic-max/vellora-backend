@@ -273,3 +273,15 @@ export const interviewModeEnum = pgEnum('interview_mode', INTERVIEW_MODES);
 export const INTERVIEW_STATUSES = ['scheduled', 'done', 'cancelled'] as const;
 export type InterviewStatus = (typeof INTERVIEW_STATUSES)[number];
 export const interviewStatusEnum = pgEnum('interview_status', INTERVIEW_STATUSES);
+
+// ── Reports & Analytics (16-reports §3, §8) ─────────────────────────────────
+/** Generic job/run lifecycle for a scheduled/queued report run. */
+export const REPORT_RUN_STATUSES = ['queued', 'running', 'ready', 'failed'] as const;
+export type ReportRunStatus = (typeof REPORT_RUN_STATUSES)[number];
+export const reportRunStatusEnum = pgEnum('report_run_status', REPORT_RUN_STATUSES);
+
+// ── Platform plane (roles-and-access §3) ────────────────────────────────────
+/** Cross-tenant operator roles. Held on `users.platform_role` (null = tenant-only). */
+export const PLATFORM_ROLES = ['super_admin', 'platform_admin', 'operations'] as const;
+export type PlatformRole = (typeof PLATFORM_ROLES)[number];
+export const platformRoleEnum = pgEnum('platform_role', PLATFORM_ROLES);

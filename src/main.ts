@@ -22,6 +22,20 @@ async function bootstrap(): Promise<void> {
     allowedHeaders: ['Authorization', 'Content-Type', 'x-company-id'],
   });
 
+  // Baseline security headers on every response (no helmet dependency). The API
+  // serves JSON only, so a strict, framing-denied, no-sniff posture is safe.
+  app.use((_req: Request, res: Response, next: () => void) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'DENY');
+    res.setHeader('Referrer-Policy', 'no-referrer');
+    res.setHeader('X-DNS-Prefetch-Control', 'off');
+    res.setHeader('Permissions-Policy', 'geolocation=(), microphone=(), camera=()');
+    if (config.get('nodeEnv', { infer: true }) === 'production') {
+      res.setHeader('Strict-Transport-Security', 'max-age=31536000; includeSubDomains');
+    }
+    next();
+  });
+
   app.setGlobalPrefix('api', { exclude: ['health'] });
   app.enableShutdownHooks();
 
