@@ -2,6 +2,7 @@ import { Module } from '@nestjs/common';
 import { APP_GUARD } from '@nestjs/core';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
+import { SessionService } from './session.service';
 import { SupabaseAuthGuard } from './supabase-auth.guard';
 
 /**
@@ -13,6 +14,7 @@ import { SupabaseAuthGuard } from './supabase-auth.guard';
   controllers: [AuthController],
   providers: [
     AuthService,
+    SessionService,
     {
       provide: APP_GUARD,
       useClass: SupabaseAuthGuard,

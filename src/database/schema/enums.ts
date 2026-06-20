@@ -146,3 +146,142 @@ export const terminalStatusEnum = pgEnum('terminal_status', TERMINAL_STATUSES);
 export const DEVICE_STATUSES = ['pending', 'registered', 'reset', 'blocked'] as const;
 export type DeviceStatus = (typeof DEVICE_STATUSES)[number];
 export const deviceStatusEnum = pgEnum('device_status', DEVICE_STATUSES);
+
+// ── Leave & Holidays (06-leave-holidays §3, §8) ─────────────────────────────
+/** Leave-request lifecycle. Multi-step chains stay `requested` until the last step approves. */
+export const LEAVE_REQUEST_STATUSES = ['requested', 'approved', 'rejected', 'cancelled'] as const;
+export type LeaveRequestStatus = (typeof LEAVE_REQUEST_STATUSES)[number];
+export const leaveRequestStatusEnum = pgEnum('leave_request_status', LEAVE_REQUEST_STATUSES);
+
+// ── Onboarding (07-onboarding §3, §8) ───────────────────────────────────────
+/** Stage a task group belongs to. */
+export const ONBOARDING_STAGES = ['pre_start', 'first_day', 'first_week', 'first_month'] as const;
+export type OnboardingStage = (typeof ONBOARDING_STAGES)[number];
+export const onboardingStageEnum = pgEnum('onboarding_stage', ONBOARDING_STAGES);
+
+/** Per-employee task assignment lifecycle. */
+export const ONBOARDING_ASSIGNMENT_STATUSES = ['pending', 'done', 'skipped'] as const;
+export type OnboardingAssignmentStatus = (typeof ONBOARDING_ASSIGNMENT_STATUSES)[number];
+export const onboardingAssignmentStatusEnum = pgEnum(
+  'onboarding_assignment_status',
+  ONBOARDING_ASSIGNMENT_STATUSES,
+);
+
+// ── Transfers (12-transfers §3, §8) ─────────────────────────────────────────
+/** Whether a transfer is a temporary loan or a permanent move. */
+export const TRANSFER_KINDS = ['temporary', 'permanent'] as const;
+export type TransferKind = (typeof TRANSFER_KINDS)[number];
+export const transferKindEnum = pgEnum('transfer_kind', TRANSFER_KINDS);
+
+/** Transfer lifecycle. Temporary ones activate, then auto-revert at the window end. */
+export const TRANSFER_STATUSES = [
+  'requested',
+  'approved',
+  'active',
+  'completed',
+  'rejected',
+  'cancelled',
+] as const;
+export type TransferStatus = (typeof TRANSFER_STATUSES)[number];
+export const transferStatusEnum = pgEnum('transfer_status', TRANSFER_STATUSES);
+
+// ── Documents (08-documents §3, §8) ─────────────────────────────────────────
+/** Whether a folder holds company-wide files or one employee's files. */
+export const DOC_FOLDER_KINDS = ['company', 'employee'] as const;
+export type DocFolderKind = (typeof DOC_FOLDER_KINDS)[number];
+export const docFolderKindEnum = pgEnum('doc_folder_kind', DOC_FOLDER_KINDS);
+
+/** Who may see a document: everyone in the company, a role, or one employee. */
+export const DOCUMENT_VISIBILITIES = ['company', 'role', 'employee'] as const;
+export type DocumentVisibility = (typeof DOCUMENT_VISIBILITIES)[number];
+export const documentVisibilityEnum = pgEnum('document_visibility', DOCUMENT_VISIBILITIES);
+
+/** Document lifecycle. `expiring`/`expired` are set by the expiry scan job. */
+export const DOCUMENT_STATUSES = ['active', 'expiring', 'expired', 'trashed'] as const;
+export type DocumentStatus = (typeof DOCUMENT_STATUSES)[number];
+export const documentStatusEnum = pgEnum('document_status', DOCUMENT_STATUSES);
+
+/** E-signature request lifecycle (08-documents §8). */
+export const SIGNATURE_STATUSES = ['requested', 'signed', 'declined'] as const;
+export type SignatureStatus = (typeof SIGNATURE_STATUSES)[number];
+export const signatureStatusEnum = pgEnum('signature_status', SIGNATURE_STATUSES);
+
+// ── Notifications (11-notifications §3) ──────────────────────────────────────
+/** Notification priority — drives the dropdown dot color + live-toast behavior. */
+export const NOTIF_PRIORITIES = ['low', 'normal', 'high', 'urgent'] as const;
+export type NotifPriority = (typeof NOTIF_PRIORITIES)[number];
+export const notifPriorityEnum = pgEnum('notif_priority', NOTIF_PRIORITIES);
+
+/** Per-category digest cadence (paid). */
+export const DIGEST_FREQS = ['off', 'daily', 'weekly'] as const;
+export type DigestFreq = (typeof DIGEST_FREQS)[number];
+export const digestFreqEnum = pgEnum('digest_freq', DIGEST_FREQS);
+
+// ── Messaging & Email (13-messaging §3, §8) ─────────────────────────────────
+/** A conversation is either a direct message or a named channel. */
+export const CONVERSATION_KINDS = ['dm', 'channel'] as const;
+export type ConversationKind = (typeof CONVERSATION_KINDS)[number];
+export const conversationKindEnum = pgEnum('conversation_kind', CONVERSATION_KINDS);
+
+/** Email message send lifecycle (13-messaging §8). */
+export const EMAIL_STATUSES = [
+  'draft',
+  'queued',
+  'sent',
+  'delivered',
+  'bounced',
+  'failed',
+] as const;
+export type EmailStatus = (typeof EMAIL_STATUSES)[number];
+export const emailStatusEnum = pgEnum('email_status', EMAIL_STATUSES);
+
+// ── Billing & Subscriptions (15-billing §8) ─────────────────────────────────
+/** Subscription lifecycle, mirrored from Stripe. */
+export const SUBSCRIPTION_STATUSES = ['trialing', 'active', 'past_due', 'canceled'] as const;
+export type SubscriptionStatus = (typeof SUBSCRIPTION_STATUSES)[number];
+export const subscriptionStatusEnum = pgEnum('subscription_status', SUBSCRIPTION_STATUSES);
+
+/** Invoice lifecycle, mirrored from Stripe. */
+export const INVOICE_STATUSES = ['draft', 'open', 'paid', 'void'] as const;
+export type InvoiceStatus = (typeof INVOICE_STATUSES)[number];
+export const invoiceStatusEnum = pgEnum('invoice_status', INVOICE_STATUSES);
+
+// ── Recruiting / ATS (09-recruiting §3, §8) ─────────────────────────────────
+/** Job posting lifecycle. `published` controls public careers-site visibility. */
+export const JOB_STATUSES = ['draft', 'published', 'closed'] as const;
+export type JobStatus = (typeof JOB_STATUSES)[number];
+export const jobStatusEnum = pgEnum('job_status', JOB_STATUSES);
+
+/** Pipeline stage a candidate sits in (kanban columns). */
+export const CANDIDATE_STAGES = [
+  'applied',
+  'review',
+  'interview',
+  'offer',
+  'hired',
+  'rejected',
+] as const;
+export type CandidateStage = (typeof CANDIDATE_STAGES)[number];
+export const candidateStageEnum = pgEnum('candidate_stage', CANDIDATE_STAGES);
+
+/** Interview delivery mode. */
+export const INTERVIEW_MODES = ['onsite', 'phone', 'video'] as const;
+export type InterviewMode = (typeof INTERVIEW_MODES)[number];
+export const interviewModeEnum = pgEnum('interview_mode', INTERVIEW_MODES);
+
+/** Interview lifecycle. */
+export const INTERVIEW_STATUSES = ['scheduled', 'done', 'cancelled'] as const;
+export type InterviewStatus = (typeof INTERVIEW_STATUSES)[number];
+export const interviewStatusEnum = pgEnum('interview_status', INTERVIEW_STATUSES);
+
+// ── Reports & Analytics (16-reports §3, §8) ─────────────────────────────────
+/** Generic job/run lifecycle for a scheduled/queued report run. */
+export const REPORT_RUN_STATUSES = ['queued', 'running', 'ready', 'failed'] as const;
+export type ReportRunStatus = (typeof REPORT_RUN_STATUSES)[number];
+export const reportRunStatusEnum = pgEnum('report_run_status', REPORT_RUN_STATUSES);
+
+// ── Platform plane (roles-and-access §3) ────────────────────────────────────
+/** Cross-tenant operator roles. Held on `users.platform_role` (null = tenant-only). */
+export const PLATFORM_ROLES = ['super_admin', 'platform_admin', 'operations'] as const;
+export type PlatformRole = (typeof PLATFORM_ROLES)[number];
+export const platformRoleEnum = pgEnum('platform_role', PLATFORM_ROLES);

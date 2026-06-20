@@ -1,9 +1,16 @@
 {
   "compilerOptions": {
+    // Nest emits CommonJS, and Drizzle's types break under "nodenext" (dual
+    // resolution-mode produces two incompatible `SQL` types), so we stay on the
+    // classic node resolution. TS 5.x flags bare "node"/"node10" as deprecated
+    // for 7.0; `ignoreDeprecations: "5.0"` is the officially-prescribed opt-out
+    // on the TS 5.x line (5.0 is the only accepted value until 6.0). baseUrl is
+    // removed entirely (no path aliases → not needed).
+    "ignoreDeprecations": "5.0",
     "module": "commonjs",
+    "moduleResolution": "node10",
     "target": "ES2023",
     "lib": ["ES2023"],
-    "moduleResolution": "node",
     "declaration": true,
     "removeComments": true,
     "emitDecoratorMetadata": true,
@@ -12,7 +19,6 @@
     "esModuleInterop": true,
     "sourceMap": true,
     "outDir": "./dist",
-    "baseUrl": "./",
     "incremental": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,

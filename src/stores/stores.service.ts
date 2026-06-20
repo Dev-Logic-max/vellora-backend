@@ -1,5 +1,6 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { eq, inArray } from 'drizzle-orm';
+import { BillingService } from '../billing/billing.service';
 import { TenantContextService } from '../common/tenant/tenant-context.service';
 import { DatabaseService } from '../database/database.service';
 import { storeActivities, stores, type Store, type StoreActivity } from '../database/schema';
@@ -20,6 +21,7 @@ export class StoresService {
   constructor(
     private readonly databaseService: DatabaseService,
     private readonly tenant: TenantContextService,
+    private readonly billing: BillingService,
   ) {}
 
   /** Store ids the caller may see, or null for "all company stores". */
@@ -56,6 +58,7 @@ export class StoresService {
   }
 
   async create(companyId: string, dto: CreateStoreDto): Promise<Store> {
+    await this.billing.assertWithinLimit(companyId, 'stores');
     return this.databaseService.withTenant(companyId, async (tx) => {
       const [store] = await tx
         .insert(stores)

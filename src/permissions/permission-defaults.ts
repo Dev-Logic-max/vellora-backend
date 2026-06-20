@@ -19,6 +19,7 @@ export const MODULES = [
   'notifications',
   'settings',
   'billing',
+  'recruiting',
 ] as const;
 export type ModuleKey = (typeof MODULES)[number];
 

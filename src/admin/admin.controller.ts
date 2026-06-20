@@ -1,0 +1,91 @@
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { CurrentUser } from '../common/decorators/current-user.decorator';
+import { PlatformGuard } from '../common/guards/platform.guard';
+import { AdminService } from './admin.service';
+import { AssignPlanDto, FlagDto, ImpersonateDto, OverrideDto, SetStatusDto } from './dto/admin.dto';
+
+/**
+ * Platform console (P9-E, roles-and-access §3). Cross-tenant — gated by
+ * PlatformGuard (platform_role). NO TenantGuard: these routes legitimately span
+ * tenants. Every mutation is audited in `platform_audit_log`.
+ */
+@ApiTags('admin')
+@ApiBearerAuth()
+@Controller('admin')
+@UseGuards(PlatformGuard)
+export class AdminController {
+  constructor(private readonly admin: AdminService) {}
+
+  // ── tenants ─────────────────────────────────────────────────────────────────
+  @Get('tenants')
+  tenants() {
+    return this.admin.listTenants();
+  }
+
+  @Get('tenants/:id')
+  tenant(@Param('id', ParseUUIDPipe) id: string) {
+    return this.admin.getTenant(id);
+  }
+
+  @Post('tenants/:id/status')
+  setStatus(
+    @CurrentUser('userId') actor: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: SetStatusDto,
+  ) {
+    return this.admin.setStatus(actor, id, dto);
+  }
+
+  @Post('tenants/:id/plan')
+  assignPlan(
+    @CurrentUser('userId') actor: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AssignPlanDto,
+  ) {
+    return this.admin.assignPlan(actor, id, dto);
+  }
+
+  @Post('tenants/:id/override')
+  setOverride(
+    @CurrentUser('userId') actor: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: OverrideDto,
+  ) {
+    return this.admin.setOverride(actor, id, dto);
+  }
+
+  // ── plans ──────────────────────────────────────────────────────────────────
+  @Get('plans')
+  plans() {
+    return this.admin.listPlans();
+  }
+
+  // ── feature flags ─────────────────────────────────────────────────────────────
+  @Get('flags')
+  flags() {
+    return this.admin.listFlags();
+  }
+
+  @Post('flags')
+  setFlag(@CurrentUser('userId') actor: string, @Body() dto: FlagDto) {
+    return this.admin.setFlag(actor, dto);
+  }
+
+  // ── audit log ──────────────────────────────────────────────────────────────
+  @Get('audit')
+  audit() {
+    return this.admin.listAudit();
+  }
+
+  // ── impersonation ─────────────────────────────────────────────────────────────
+  @Post('impersonate/start')
+  startImpersonate(@CurrentUser('userId') actor: string, @Body() dto: ImpersonateDto) {
+    return this.admin.startImpersonation(actor, dto.companyId);
+  }
+
+  @Post('impersonate/stop')
+  stopImpersonate(@CurrentUser('userId') actor: string, @Body() dto: ImpersonateDto) {
+    return this.admin.stopImpersonation(actor, dto.companyId);
+  }
+}

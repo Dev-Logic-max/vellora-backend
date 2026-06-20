@@ -42,13 +42,34 @@ export class AllExceptionsFilter implements ExceptionFilter {
     };
 
     if (status >= 500) {
+      // Structured 500 log with request context — ready for a Sentry transport
+      // (set SENTRY_DSN + drop in @sentry/node to forward; no-op without it).
       this.logger.error(
-        `${request.method} ${request.url} → ${status}`,
+        `${request.method} ${request.url} → ${status} [user=${request.user?.userId ?? 'anon'} company=${request.user?.companyId ?? '-'}]`,
         exception instanceof Error ? exception.stack : String(exception),
       );
+      this.reportToSentry(exception);
     }
 
     response.status(status).json(body);
+  }
+
+  /**
+   * Forwards an error to Sentry when both `SENTRY_DSN` and `@sentry/node` are
+   * available. Loaded dynamically so the SDK stays an OPTIONAL dependency — the
+   * app builds and runs without it. Drop in `@sentry/node` to activate.
+   */
+  private reportToSentry(exception: unknown): void {
+    if (!process.env.SENTRY_DSN) return;
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
+      const Sentry = require('@sentry/node') as {
+        captureException?: (e: unknown) => void;
+      };
+      Sentry.captureException?.(exception);
+    } catch {
+      // @sentry/node not installed — silently skip (DSN set but no transport).
+    }
   }
 
   private resolveMessage(exception: unknown, status: number): string | string[] {

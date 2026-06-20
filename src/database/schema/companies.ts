@@ -13,6 +13,8 @@ export const companies = pgTable('companies', {
   id: uuid('id').defaultRandom().primaryKey(),
   groupId: uuid('group_id'),
   name: text('name').notNull(),
+  /** URL-safe handle for the public careers site (/careers/:slug). Unique. */
+  slug: text('slug').unique(),
   country: text('country').notNull().default('US'),
   currency: text('currency').notNull().default('USD'),
   timezone: text('timezone').notNull().default('UTC'),

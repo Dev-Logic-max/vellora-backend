@@ -19,23 +19,32 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
-    "db:studio": "drizzle-kit studio"
+    "db:studio": "drizzle-kit studio",
+    "db:seed": "ts-node -T src/database/seeds/run.ts",
+    "db:seed:list": "ts-node -T src/database/seeds/run.ts --list"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",
     "@nestjs/config": "^4.0.4",
     "@nestjs/core": "^11.1.6",
     "@nestjs/platform-express": "^11.1.6",
+    "@nestjs/platform-socket.io": "^11",
     "@nestjs/swagger": "^11.4.4",
+    "@nestjs/websockets": "^11",
+    "@supabase/supabase-js": "^2.108.2",
+    "bullmq": "^5.79.0",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.15.1",
     "drizzle-orm": "^0.45.2",
+    "ioredis": "^5.11.1",
     "jose": "^6.2.3",
     "nestjs-zod": "^5.4.0",
     "papaparse": "^5.5.3",
     "postgres": "^3.4.9",
     "reflect-metadata": "^0.2.2",
+    "resend": "^6.14.0",
     "rxjs": "^7.8.2",
+    "stripe": "^22.2.2",
     "zod": "^4.4.3"
   },
   "devDependencies": {
