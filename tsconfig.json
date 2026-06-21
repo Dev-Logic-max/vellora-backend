@@ -4,12 +4,12 @@
     // Nest runs the emitted JS directly in Node (needs CommonJS output), and
     // Drizzle's types break under "nodenext"/"node16" (dual import/require
     // resolution → two incompatible `SQL` types) while "bundler" forces ESM
-    // emit. So we keep node10 + silence the TS-7.0 deprecation with
-    // `ignoreDeprecations: "5.0"` (the value our toolchain TS 5.9.3 accepts).
-    // NOTE: an editor bundling TS 6.0 may still show a cosmetic "node10
-    // deprecated" notice in its Problems panel — `tsc` + `nest build` are clean;
-    // it has no effect on compilation/runtime. Revisit at TS 7.0. baseUrl is
-    // removed (no path aliases → not needed).
+    // emit. So we keep node10 + silence the deprecation with `ignoreDeprecations`.
+    // The accepted VALUE is version-specific: TS 6.0 (our toolchain — see
+    // package.json) requires "6.0"; an OLDER editor-bundled TS would require
+    // "5.0" and reject "6.0" (spurious TS5103 in the watch terminal). `.vscode/
+    // settings.json` pins the editor to the project's TS so both agree. Revisit
+    // at TS 7.0. baseUrl is removed (no path aliases → not needed).
     "ignoreDeprecations": "6.0",
     "module": "commonjs",
     "moduleResolution": "node10",

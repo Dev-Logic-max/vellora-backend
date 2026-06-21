@@ -15,5 +15,16 @@ export const updateDesignSchema = z.object({
   themeKey: z.string().min(1).max(40).optional(),
   /** Sparse map of overridden semantic tokens; {} clears to pure Aurora. */
   tokens: z.record(tokenKey, rgbTriple).optional(),
+  /** Scheduling calendar visual style. */
+  calendarStyle: z.enum(['grid', 'roster']).optional(),
+  /** Misc UI preferences (density / motion / tab style). */
+  prefs: z
+    .object({
+      density: z.enum(['comfortable', 'compact']).optional(),
+      motion: z.boolean().optional(),
+      /** Show icons in module sub-tabs / segmented controls. */
+      tabsIcons: z.boolean().optional(),
+    })
+    .optional(),
 });
 export class UpdateDesignDto extends createZodDto(updateDesignSchema) {}
