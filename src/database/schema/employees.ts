@@ -42,11 +42,35 @@ export const employees = pgTable(
     lastName: text('last_name').notNull(),
     email: text('email'),
     phone: text('phone'),
+    /** Work/company email — distinct from the personal `email` used for the portal login. */
+    companyEmail: text('company_email'),
     role: text('role'),
     department: text('department'),
+    /** The user above this employee in the org (any role above Employee). Self-referential. */
+    supervisorId: uuid('supervisor_id'),
     status: employeeStatusEnum('status').notNull().default('active'),
     hireDate: date('hire_date'),
     contractType: contractTypeEnum('contract_type'),
+    /** Work-schedule arrangement, distinct from `contractType` (e.g. full_time/part_time/shift/remote). */
+    workScheduleType: text('work_schedule_type'),
+    weeklyHours: integer('weekly_hours'),
+    /** Contract end date (open-ended when null). */
+    contractEnd: date('contract_end'),
+    // ── personal information ──────────────────────────────────────────────
+    nationality: text('nationality'),
+    dateOfBirth: date('date_of_birth'),
+    gender: text('gender'),
+    iban: text('iban'),
+    // ── address ───────────────────────────────────────────────────────────
+    country: text('country'),
+    state: text('state'),
+    city: text('city'),
+    postalCode: text('postal_code'),
+    address: text('address'),
+    /** Adjustable benefits a company offers this employee (e.g. first-aid/medical). */
+    benefits: jsonb('benefits')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     avatarUrl: text('avatar_url'),
     locale: text('locale').notNull().default('en'),
     timezone: text('timezone').notNull().default('UTC'),
@@ -61,6 +85,7 @@ export const employees = pgTable(
     unique('employees_company_code_unique').on(table.companyId, table.uniqueCode),
     index('employees_company_id_idx').on(table.companyId),
     index('employees_primary_store_id_idx').on(table.primaryStoreId),
+    index('employees_supervisor_id_idx').on(table.supervisorId),
     index('employees_status_idx').on(table.status),
   ],
 );

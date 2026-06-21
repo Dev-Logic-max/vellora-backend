@@ -88,10 +88,28 @@ export class AttendanceService {
   }
 
   // ── reads ────────────────────────────────────────────────────────────────
-  listLogs(companyId: string, dto: ListLogsDto): Promise<AttendanceLog[]> {
+  async listLogs(companyId: string, dto: ListLogsDto): Promise<AttendanceLog[]> {
     const scope = this.scopedStoreIds();
-    if (scope && scope.length === 0) return Promise.resolve([]);
-    return this.repo.listLogs(companyId, dto, scope);
+    if (scope && scope.length === 0) return [];
+    const logs = await this.repo.listLogs(companyId, dto, scope);
+    return this.withMembershipRole(companyId, logs);
+  }
+
+  /** Attaches each employee's company membership role (the staff "user role")
+   * to the log's employee embed, in one batched lookup. */
+  private async withMembershipRole<T extends LogWithEmployee>(
+    companyId: string,
+    logs: T[],
+  ): Promise<T[]> {
+    const userIds = logs.map((l) => l.employee?.userId).filter((id): id is string => Boolean(id));
+    if (userIds.length === 0) return logs;
+    const roles = await this.repo.membershipRolesByUser(companyId, userIds);
+    for (const log of logs) {
+      if (log.employee?.userId) {
+        log.employee.membershipRole = roles.get(log.employee.userId) ?? null;
+      }
+    }
+    return logs;
   }
 
   async getLog(companyId: string, id: string): Promise<AttendanceLog> {
@@ -377,7 +395,12 @@ export class AttendanceService {
 }
 
 type LogWithEmployee = AttendanceLog & {
-  employee?: { firstName: string; lastName: string } | null;
+  employee?: {
+    firstName: string;
+    lastName: string;
+    userId?: string | null;
+    membershipRole?: string | null;
+  } | null;
 };
 
 function minutesBetween(a: Date, b: Date): number {

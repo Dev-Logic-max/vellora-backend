@@ -6,10 +6,12 @@ export const createStoreSchema = z.object({
   code: z.string().max(40).optional(),
   category: z.string().max(60).optional(),
   country: z.string().length(2).optional(),
+  state: z.string().max(80).optional(),
+  city: z.string().max(80).optional(),
   address: z.string().max(240).optional(),
   postalCode: z.string().max(20).optional(),
   timezone: z.string().min(1).max(64).optional(),
-  capacity: z.number().int().min(0).optional(),
+  capacity: z.coerce.number().int().min(0).optional(),
   headStore: z.boolean().optional(),
   managerUserId: z.uuid().optional(),
 });

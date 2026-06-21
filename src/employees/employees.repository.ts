@@ -7,8 +7,10 @@ import {
   employees,
   empPreferences,
   medicals,
+  memberships,
   qualifications,
   stores,
+  users,
   type Contract,
   type Employee,
   type EmployeeStore,
@@ -19,6 +21,11 @@ import {
   type NewQualification,
   type Qualification,
 } from '../database/schema';
+import type { MembershipRole } from '../database/schema/enums';
+
+/** An employee row enriched with the user's company membership role (the
+ * platform-plane "user role"), distinct from the free-text job title in `role`. */
+export type EmployeeWithMembership = Employee & { membershipRole: MembershipRole | null };
 
 export interface EmployeeFilters {
   page: number;
@@ -59,18 +66,30 @@ export class EmployeesRepository {
     companyId: string,
     filters: EmployeeFilters,
     scopeStoreIds: string[] | null,
-  ): Promise<{ rows: Employee[]; total: number }> {
+  ): Promise<{ rows: EmployeeWithMembership[]; total: number }> {
     const where = this.listWhere(filters, scopeStoreIds);
     return this.db.withTenant(companyId, async (tx) => {
+      // Left-join the user's membership (same tenant via RLS) to surface the
+      // company "user role" alongside the employee's free-text job title.
       const rows = await tx
-        .select()
+        .select({ employee: employees, membershipRole: memberships.role })
         .from(employees)
+        .leftJoin(
+          memberships,
+          and(
+            eq(memberships.userId, employees.userId),
+            eq(memberships.companyId, employees.companyId),
+          ),
+        )
         .where(where)
         .orderBy(asc(employees.lastName), asc(employees.firstName))
         .limit(filters.pageSize)
         .offset((filters.page - 1) * filters.pageSize);
       const [{ value }] = await tx.select({ value: count() }).from(employees).where(where);
-      return { rows, total: Number(value) };
+      return {
+        rows: rows.map((r) => ({ ...r.employee, membershipRole: r.membershipRole })),
+        total: Number(value),
+      };
     });
   }
 
@@ -79,6 +98,28 @@ export class EmployeesRepository {
     const where = scopeStoreIds ? inArray(employees.primaryStoreId, scopeStoreIds) : undefined;
     return this.db.withTenant(companyId, (tx) =>
       tx.select().from(employees).where(where).orderBy(asc(employees.uniqueCode)),
+    );
+  }
+
+  /**
+   * Users in this company whose membership role sits above Employee — the pool
+   * of eligible supervisors. Joins `users` to surface a display name + email.
+   */
+  listSupervisorCandidates(companyId: string) {
+    const supervisorRoles: MembershipRole[] = ['owner', 'hr', 'area_manager', 'store_manager'];
+    return this.db.withTenant(companyId, (tx) =>
+      tx
+        .select({
+          userId: memberships.userId,
+          role: memberships.role,
+          name: users.name,
+          email: users.email,
+          avatarUrl: users.avatarUrl,
+        })
+        .from(memberships)
+        .innerJoin(users, eq(users.id, memberships.userId))
+        .where(and(eq(memberships.status, 'active'), inArray(memberships.role, supervisorRoles)))
+        .orderBy(asc(users.name)),
     );
   }
 
@@ -93,6 +134,21 @@ export class EmployeesRepository {
     return this.db.withTenant(companyId, (tx) =>
       tx.query.employees.findFirst({ where: eq(employees.id, id) }),
     );
+  }
+
+  /** The user's company membership role (the "user role"), or null. */
+  async membershipRoleForUser(
+    companyId: string,
+    userId: string | null,
+  ): Promise<MembershipRole | null> {
+    if (!userId) return null;
+    const row = await this.db.withTenant(companyId, (tx) =>
+      tx.query.memberships.findFirst({
+        where: and(eq(memberships.userId, userId), eq(memberships.companyId, companyId)),
+        columns: { role: true },
+      }),
+    );
+    return row?.role ?? null;
   }
 
   /** Full profile aggregate: employee + primary store + secondary links. */

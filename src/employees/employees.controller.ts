@@ -12,7 +12,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CompanyId } from '../common/decorators/company-id.decorator';
 import { RequireEntitlement } from '../common/decorators/require-entitlement.decorator';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
@@ -66,6 +66,12 @@ export class EmployeesController {
     return this.employees.importCsv(companyId, dto.csv);
   }
 
+  @Get('supervisors')
+  @ApiOperation({ summary: 'Users above Employee in this company (supervisor picker)' })
+  supervisors(@CompanyId() companyId: string) {
+    return this.employees.listSupervisors(companyId);
+  }
+
   @Post()
   @UseGuards(RolesGuard)
   @Roles('owner', 'hr', 'area_manager', 'store_manager')
@@ -75,7 +81,7 @@ export class EmployeesController {
 
   @Get(':id')
   get(@CompanyId() companyId: string, @Param('id', ParseUUIDPipe) id: string) {
-    return this.employees.get(companyId, id);
+    return this.employees.getDetail(companyId, id);
   }
 
   @Patch(':id')

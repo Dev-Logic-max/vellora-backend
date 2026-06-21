@@ -7,6 +7,7 @@ import {
   attendanceLogs,
   corrections,
   employees,
+  memberships,
   shifts,
   type Anomaly,
   type AttendanceBreak,
@@ -17,6 +18,7 @@ import {
   type NewAttendanceLog,
   type NewCorrection,
 } from '../database/schema';
+import type { MembershipRole } from '../database/schema/enums';
 
 export interface LogFilters {
   storeId?: string;
@@ -32,6 +34,7 @@ const LOG_EMPLOYEE_COLS = {
   lastName: true,
   avatarUrl: true,
   uniqueCode: true,
+  userId: true,
 } as const;
 
 /** All attendance Drizzle access, RLS-scoped via DatabaseService.withTenant. */
@@ -59,6 +62,23 @@ export class AttendanceRepository {
         limit: 500,
       }),
     );
+  }
+
+  /** Membership role per userId for this company (the staff "user role"). One
+   * query, used to enrich attendance/anomaly rows whose employee has a login. */
+  async membershipRolesByUser(
+    companyId: string,
+    userIds: string[],
+  ): Promise<Map<string, MembershipRole>> {
+    const ids = [...new Set(userIds.filter(Boolean))];
+    if (ids.length === 0) return new Map();
+    const rows = await this.db.withTenant(companyId, (tx) =>
+      tx
+        .select({ userId: memberships.userId, role: memberships.role })
+        .from(memberships)
+        .where(inArray(memberships.userId, ids)),
+    );
+    return new Map(rows.map((r) => [r.userId, r.role]));
   }
 
   findOpenLog(companyId: string, employeeId: string) {

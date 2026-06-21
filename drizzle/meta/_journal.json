@@ -120,6 +120,13 @@
       "when": 1782026318884,
       "tag": "0016_platform_design_calendar_prefs",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1782061159451,
+      "tag": "0017_module_creation_fields",
+      "breakpoints": true
     }
   ]
 }

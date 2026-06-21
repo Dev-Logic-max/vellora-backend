@@ -21,7 +21,18 @@ export const companies = pgTable('companies', {
   status: companyStatusEnum('status').notNull().default('active'),
   planId: uuid('plan_id'),
   logoUrl: text('logo_url'),
+  /** Primary owner/chairman of the company (a platform user). */
+  ownerUserId: uuid('owner_user_id'),
+  /** Legal registration / company number. */
+  registrationNumber: text('registration_number'),
+  /** Primary contact email + phone for the company. */
+  companyEmail: text('company_email'),
+  phone: text('phone'),
   headOfficeAddress: text('head_office_address'),
+  /** Head-office location parts (the careers/profile cards render these). */
+  state: text('state'),
+  city: text('city'),
+  postalCode: text('postal_code'),
   offices: jsonb('offices')
     .notNull()
     .default(sql`'[]'::jsonb`),
