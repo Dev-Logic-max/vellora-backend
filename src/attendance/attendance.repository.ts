@@ -107,6 +107,12 @@ export class AttendanceRepository {
     });
   }
 
+  deleteLog(companyId: string, id: string): Promise<void> {
+    return this.db.withTenant(companyId, async (tx) => {
+      await tx.delete(attendanceLogs).where(eq(attendanceLogs.id, id));
+    });
+  }
+
   updateLog(
     companyId: string,
     id: string,
@@ -259,6 +265,16 @@ export class AttendanceRepository {
     return this.db.withTenant(companyId, (tx) =>
       tx.query.employees.findFirst({
         where: eq(employees.id, id),
+        columns: { id: true, firstName: true, lastName: true, primaryStoreId: true, status: true },
+      }),
+    );
+  }
+
+  /** Resolve the employee linked to an authenticated user in this company. */
+  employeeByUserId(companyId: string, userId: string) {
+    return this.db.withTenant(companyId, (tx) =>
+      tx.query.employees.findFirst({
+        where: eq(employees.userId, userId),
         columns: { id: true, firstName: true, lastName: true, primaryStoreId: true, status: true },
       }),
     );

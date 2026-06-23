@@ -3,6 +3,7 @@ import { and, asc, count, desc, eq, ilike, inArray, or, type SQL } from 'drizzle
 import { DatabaseService } from '../database/database.service';
 import {
   contracts,
+  employeeBankAccounts,
   employeeStores,
   employees,
   empPreferences,
@@ -12,6 +13,8 @@ import {
   stores,
   users,
   type Contract,
+  type EmployeeBankAccount,
+  type NewEmployeeBankAccount,
   type Employee,
   type EmployeeStore,
   type Medical,
@@ -201,6 +204,13 @@ export class EmployeesRepository {
     });
   }
 
+  /** Hard-delete an employee (cascade removes their sub-rows via FK). */
+  remove(companyId: string, id: string): Promise<void> {
+    return this.db.withTenant(companyId, async (tx) => {
+      await tx.delete(employees).where(eq(employees.id, id));
+    });
+  }
+
   // ── secondary store links ───────────────────────────────────────────────
   listLinks(companyId: string, employeeId: string): Promise<EmployeeStore[]> {
     return this.db.withTenant(companyId, (tx) =>
@@ -231,6 +241,43 @@ export class EmployeesRepository {
       await tx
         .delete(employeeStores)
         .where(and(eq(employeeStores.employeeId, employeeId), eq(employeeStores.storeId, storeId)));
+    });
+  }
+
+  // ── bank accounts ─────────────────────────────────────────────────────────
+  listBankAccounts(companyId: string, employeeId: string): Promise<EmployeeBankAccount[]> {
+    return this.db.withTenant(companyId, (tx) =>
+      tx.query.employeeBankAccounts.findMany({
+        where: eq(employeeBankAccounts.employeeId, employeeId),
+        orderBy: desc(employeeBankAccounts.isPrimary),
+      }),
+    );
+  }
+
+  addBankAccount(companyId: string, values: NewEmployeeBankAccount): Promise<EmployeeBankAccount> {
+    return this.db.withTenant(companyId, async (tx) => {
+      // A newly-primary account demotes the others.
+      if (values.isPrimary) {
+        await tx
+          .update(employeeBankAccounts)
+          .set({ isPrimary: false })
+          .where(eq(employeeBankAccounts.employeeId, values.employeeId));
+      }
+      const [row] = await tx.insert(employeeBankAccounts).values(values).returning();
+      return row;
+    });
+  }
+
+  removeBankAccount(companyId: string, employeeId: string, accountId: string): Promise<void> {
+    return this.db.withTenant(companyId, async (tx) => {
+      await tx
+        .delete(employeeBankAccounts)
+        .where(
+          and(
+            eq(employeeBankAccounts.id, accountId),
+            eq(employeeBankAccounts.employeeId, employeeId),
+          ),
+        );
     });
   }
 

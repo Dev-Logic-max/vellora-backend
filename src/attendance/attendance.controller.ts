@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   Header,
   Param,
@@ -41,6 +42,18 @@ export class AttendanceController {
   @Get('logs')
   logs(@CompanyId() companyId: string, @Query() query: ListLogsDto) {
     return this.attendance.listLogs(companyId, query);
+  }
+
+  @Get('logs/:id')
+  log(@CompanyId() companyId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.attendance.getLog(companyId, id);
+  }
+
+  @Delete('logs/:id')
+  @UseGuards(RolesGuard)
+  @Roles(...MANAGER_ROLES)
+  deleteLog(@CompanyId() companyId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.attendance.deleteLog(companyId, id);
   }
 
   @Get('export')

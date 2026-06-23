@@ -15,6 +15,7 @@ import {
   type Company,
   type MembershipRole,
 } from '../database/schema';
+import { defaultsForCountry } from './country-defaults';
 import type { CreateCompanyDto, CustomPricing } from './dto/create-company.dto';
 import type { UpdateCompanyDto } from './dto/update-company.dto';
 
@@ -53,14 +54,18 @@ export class CompaniesService {
           )?.id ?? null)
         : null;
 
+    // Country-first (point 17): fall back to the country's currency/timezone when
+    // the client doesn't send explicit values.
+    const countryDefaults = defaultsForCountry(dto.country);
+
     const company = await this.databaseService.db.transaction(async (tx) => {
       const [created] = await tx
         .insert(companies)
         .values({
           name: dto.name,
           ...(dto.country ? { country: dto.country } : {}),
-          ...(dto.currency ? { currency: dto.currency } : {}),
-          ...(dto.timezone ? { timezone: dto.timezone } : {}),
+          currency: dto.currency ?? countryDefaults.currency,
+          timezone: dto.timezone ?? countryDefaults.timezone,
           groupId: dto.groupId ?? null,
           ownerUserId: ownerId,
           ...(dto.registrationNumber ? { registrationNumber: dto.registrationNumber } : {}),
@@ -209,6 +214,17 @@ export class CompaniesService {
 
   async update(companyId: string, userId: string, dto: UpdateCompanyDto): Promise<Company> {
     await this.assertMember(companyId, userId);
+    // Shallow-merge company settings so partial toggles don't drop other keys.
+    let settingsPatch: Record<string, unknown> | undefined;
+    if (dto.settings !== undefined) {
+      const current = await this.databaseService.withTenant(companyId, (tx) =>
+        tx.query.companies.findFirst({
+          where: eq(companies.id, companyId),
+          columns: { settings: true },
+        }),
+      );
+      settingsPatch = { settings: { ...(current?.settings ?? {}), ...dto.settings } };
+    }
     const patch = {
       ...(dto.name !== undefined ? { name: dto.name } : {}),
       ...(dto.country !== undefined ? { country: dto.country } : {}),
@@ -224,6 +240,7 @@ export class CompaniesService {
       ...(dto.postalCode !== undefined ? { postalCode: dto.postalCode } : {}),
       ...(dto.headOfficeAddress !== undefined ? { headOfficeAddress: dto.headOfficeAddress } : {}),
       ...(dto.offices !== undefined ? { offices: dto.offices } : {}),
+      ...(settingsPatch ?? {}),
     };
     const updated = await this.databaseService.withTenant(companyId, async (tx) => {
       const [row] = await tx

@@ -137,8 +137,9 @@ export type CorrectionStatus = (typeof CORRECTION_STATUSES)[number];
 export const correctionStatusEnum = pgEnum('correction_status', CORRECTION_STATUSES);
 
 // ── Devices & Terminals (14-devices-terminals §3) ───────────────────────────
-/** Store terminal/kiosk lifecycle. */
-export const TERMINAL_STATUSES = ['pending', 'active', 'blocked'] as const;
+/** Store terminal/kiosk lifecycle. `inactive` = super-admin froze it (no punches)
+ * without deleting; differs from `blocked` (security block). */
+export const TERMINAL_STATUSES = ['pending', 'active', 'inactive', 'blocked'] as const;
 export type TerminalStatus = (typeof TERMINAL_STATUSES)[number];
 export const terminalStatusEnum = pgEnum('terminal_status', TERMINAL_STATUSES);
 
@@ -146,6 +147,30 @@ export const terminalStatusEnum = pgEnum('terminal_status', TERMINAL_STATUSES);
 export const DEVICE_STATUSES = ['pending', 'registered', 'reset', 'blocked'] as const;
 export type DeviceStatus = (typeof DEVICE_STATUSES)[number];
 export const deviceStatusEnum = pgEnum('device_status', DEVICE_STATUSES);
+
+/** One-time device registration an employee binds before any attendance action.
+ * `active` = can clock in; `disabled` = HR/admin froze it; `revoked` = removed
+ * (employee must re-register). */
+export const DEVICE_REGISTRATION_STATUSES = ['active', 'disabled', 'revoked'] as const;
+export type DeviceRegistrationStatus = (typeof DEVICE_REGISTRATION_STATUSES)[number];
+export const deviceRegistrationStatusEnum = pgEnum(
+  'device_registration_status',
+  DEVICE_REGISTRATION_STATUSES,
+);
+
+/** Audited actions on a device registration (history log). */
+export const DEVICE_REGISTRATION_ACTIONS = [
+  'registered',
+  'revoked',
+  'disabled',
+  'enabled',
+  're_registered',
+] as const;
+export type DeviceRegistrationAction = (typeof DEVICE_REGISTRATION_ACTIONS)[number];
+export const deviceRegistrationActionEnum = pgEnum(
+  'device_registration_action',
+  DEVICE_REGISTRATION_ACTIONS,
+);
 
 // ── Leave & Holidays (06-leave-holidays §3, §8) ─────────────────────────────
 /** Leave-request lifecycle. Multi-step chains stay `requested` until the last step approves. */

@@ -22,6 +22,7 @@ import { TenantGuard } from '../common/tenant/tenant.guard';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PlanGuard } from '../entitlements/plan.guard';
 import {
+  CreateBankAccountDto,
   CreateContractDto,
   CreateEmployeeDto,
   CreateMedicalDto,
@@ -102,6 +103,14 @@ export class EmployeesController {
     return this.employees.archive(companyId, id);
   }
 
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'hr')
+  @ApiOperation({ summary: 'Permanently delete an employee (irreversible)' })
+  remove(@CompanyId() companyId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.employees.remove(companyId, id);
+  }
+
   @Post(':id/invite')
   @UseGuards(RolesGuard)
   @Roles('owner', 'hr')
@@ -139,6 +148,36 @@ export class EmployeesController {
     @Param('storeId', ParseUUIDPipe) storeId: string,
   ) {
     return this.employees.removeStoreLink(companyId, id, storeId);
+  }
+
+  // ── bank accounts ─────────────────────────────────────────────────────────
+  @Get(':id/bank-accounts')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'hr')
+  bankAccounts(@CompanyId() companyId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.employees.listBankAccounts(companyId, id);
+  }
+
+  @Post(':id/bank-accounts')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'hr')
+  addBankAccount(
+    @CompanyId() companyId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateBankAccountDto,
+  ) {
+    return this.employees.addBankAccount(companyId, id, dto);
+  }
+
+  @Delete(':id/bank-accounts/:accountId')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'hr')
+  removeBankAccount(
+    @CompanyId() companyId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('accountId', ParseUUIDPipe) accountId: string,
+  ) {
+    return this.employees.removeBankAccount(companyId, id, accountId);
   }
 
   // ── contracts (permissioned) ─────────────────────────────────────────────

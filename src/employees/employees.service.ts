@@ -13,6 +13,7 @@ import type { Employee, NewEmployee } from '../database/schema';
 import { parseEmployeeCsv, toEmployeeCsv } from './employee-csv';
 import { EmployeesRepository, type EmployeeFilters } from './employees.repository';
 import type {
+  CreateBankAccountDto,
   CreateContractDto,
   CreateEmployeeDto,
   CreateMedicalDto,
@@ -141,6 +142,13 @@ export class EmployeesService {
     return this.repo.update(companyId, id, { status: 'archived' });
   }
 
+  /** Permanently delete an employee + their sub-rows (irreversible). */
+  async remove(companyId: string, id: string): Promise<{ deleted: true }> {
+    await this.get(companyId, id);
+    await this.repo.remove(companyId, id);
+    return { deleted: true };
+  }
+
   // ── invite ────────────────────────────────────────────────────────────────
   async invite(companyId: string, id: string, dto: InviteEmployeeDto) {
     const employee = await this.get(companyId, id);
@@ -245,6 +253,23 @@ export class EmployeesService {
   async removeStoreLink(companyId: string, id: string, storeId: string) {
     await this.get(companyId, id);
     await this.repo.removeLink(companyId, id, storeId);
+    return { removed: true };
+  }
+
+  // ── bank accounts ───────────────────────────────────────────────────────
+  async listBankAccounts(companyId: string, id: string) {
+    await this.get(companyId, id);
+    return this.repo.listBankAccounts(companyId, id);
+  }
+
+  async addBankAccount(companyId: string, id: string, dto: CreateBankAccountDto) {
+    await this.get(companyId, id);
+    return this.repo.addBankAccount(companyId, { companyId, employeeId: id, ...dto });
+  }
+
+  async removeBankAccount(companyId: string, id: string, accountId: string) {
+    await this.get(companyId, id);
+    await this.repo.removeBankAccount(companyId, id, accountId);
     return { removed: true };
   }
 
