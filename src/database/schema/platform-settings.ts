@@ -17,6 +17,10 @@ export const platformDesignSettings = pgTable('platform_design_settings', {
   themeKey: text('theme_key').notNull().default('indigo'),
   /** Sparse semantic-token overrides `{ '--token': 'R G B' }`; {} = pure Aurora. */
   tokens: jsonb('tokens').notNull().default({}),
+  /** Scheduling calendar visual style: 'grid' (time grid) | 'roster' (employee roster). */
+  calendarStyle: text('calendar_style').notNull().default('grid'),
+  /** Misc UI preferences (density, motion, …) — `{ density: 'comfortable', motion: true }`. */
+  prefs: jsonb('prefs').notNull().default({}),
   /** User id of the last editor (no FK — platform plane is cross-tenant). */
   updatedBy: uuid('updated_by'),
   updatedAt: timestamp('updated_at', { withTimezone: true })

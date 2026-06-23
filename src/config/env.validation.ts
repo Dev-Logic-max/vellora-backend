@@ -39,6 +39,10 @@ const envSchema = z.object({
 
   // Sentry (Phase 9 hardening) — server-only.
   SENTRY_DSN: z.string().optional(),
+
+  // Attendance terminal — seconds a clock-in QR stays valid before it rotates.
+  // The kiosk auto-regenerates a few seconds before this elapses.
+  TERMINAL_QR_TTL_SECONDS: z.coerce.number().int().min(30).max(900).default(180),
 });
 
 export type EnvVars = z.infer<typeof envSchema>;

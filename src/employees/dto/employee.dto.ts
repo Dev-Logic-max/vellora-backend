@@ -17,16 +17,38 @@ const storeLink = z.object({
   relation: z.enum(EMPLOYEE_STORE_RELATIONS).default('secondary'),
 });
 
+const WORK_SCHEDULE_TYPES = ['full_time', 'part_time', 'shift', 'flexible', 'remote'] as const;
+
 export const createEmployeeSchema = z.object({
   firstName: z.string().min(1).max(80),
   lastName: z.string().min(1).max(80),
   email: z.email().max(160).optional(),
   phone: z.string().max(40).optional(),
+  companyEmail: z.email().max(160).optional().or(z.literal('')),
   role: z.string().max(80).optional(),
   department: z.string().max(80).optional(),
+  supervisorId: z.uuid().optional(),
   status: z.enum(EMPLOYEE_STATUSES).optional(),
   hireDate: isoDate,
   contractType: z.enum(CONTRACT_TYPES).optional(),
+  workScheduleType: z.enum(WORK_SCHEDULE_TYPES).optional(),
+  weeklyHours: z.coerce.number().int().min(0).max(168).optional(),
+  contractEnd: isoDate,
+  // ── personal ──────────────────────────────────────────────────────────
+  nationality: z.string().max(80).optional(),
+  dateOfBirth: isoDate,
+  gender: z.enum(['male', 'female', 'other', 'prefer_not_to_say']).optional(),
+  maritalStatus: z.enum(['single', 'married', 'divorced', 'widowed', 'other']).optional(),
+  idCardNumber: z.string().max(60).optional(),
+  iban: z.string().max(40).optional(),
+  // ── address ───────────────────────────────────────────────────────────
+  country: z.string().max(80).optional(),
+  state: z.string().max(80).optional(),
+  city: z.string().max(80).optional(),
+  postalCode: z.string().max(20).optional(),
+  address: z.string().max(240).optional(),
+  /** Map of offered benefits, e.g. { first_aid: true, medical: true, ... }. */
+  benefits: z.record(z.string(), z.boolean()).optional(),
   primaryStoreId: z.uuid().optional(),
   uniqueCode: z.string().min(2).max(40).optional(),
   locale: z.string().max(10).optional(),
@@ -85,6 +107,27 @@ export const createMedicalSchema = z.object({
   status: z.enum(CREDENTIAL_STATUSES).optional(),
 });
 export class CreateMedicalDto extends createZodDto(createMedicalSchema) {}
+
+export const createBankAccountSchema = z.object({
+  label: z.string().max(60).optional(),
+  country: z.string().max(2).optional(),
+  bankName: z.string().min(1).max(120),
+  bankSwift: z.string().max(11).optional(),
+  bankBrandColor: z.string().max(16).optional(),
+  accountHolder: z.string().max(120).optional(),
+  iban: z.string().max(40).optional(),
+  accountNumber: z.string().max(40).optional(),
+  currency: z.string().max(3).optional(),
+  cardNetwork: z
+    .enum(['visa', 'mastercard', 'amex', 'discover', 'unionpay', 'maestro', 'other'])
+    .optional(),
+  cardLast4: z.string().max(4).optional(),
+  isPrimary: z.boolean().optional(),
+});
+export class CreateBankAccountDto extends createZodDto(createBankAccountSchema) {}
+
+export const updateBankAccountSchema = createBankAccountSchema.partial();
+export class UpdateBankAccountDto extends createZodDto(updateBankAccountSchema) {}
 
 export const updatePreferencesSchema = z.object({
   availability: z.record(z.string(), z.unknown()).optional(),

@@ -113,6 +113,41 @@
       "when": 1781954525674,
       "tag": "0015_rls_fn_search_path",
       "breakpoints": true
+    },
+    {
+      "idx": 16,
+      "version": "7",
+      "when": 1782026318884,
+      "tag": "0016_platform_design_calendar_prefs",
+      "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "7",
+      "when": 1782061159451,
+      "tag": "0017_module_creation_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "7",
+      "when": 1782157609829,
+      "tag": "0018_banking_reference_personal",
+      "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1782197622550,
+      "tag": "0019_bank_card_fields",
+      "breakpoints": true
+    },
+    {
+      "idx": 20,
+      "version": "7",
+      "when": 1782284022550,
+      "tag": "0020_device_registration_terminal",
+      "breakpoints": true
     }
   ]
 }

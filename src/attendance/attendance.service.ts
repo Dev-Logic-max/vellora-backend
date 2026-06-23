@@ -7,10 +7,13 @@ import {
 import { AuditService } from '../audit/audit.service';
 import { TenantContextService } from '../common/tenant/tenant-context.service';
 import type { Anomaly, AttendanceLog, Correction, NewAnomaly } from '../database/schema';
+import { DeviceRegistrationService } from '../devices/device-registration.service';
+import { DevicesService } from '../devices/devices.service';
 import { AttendanceRepository } from './attendance.repository';
 import type {
   ClockInDto,
   CreateCorrectionDto,
+  KioskPunchDto,
   ListLogsDto,
   PunchDto,
   ResolveAnomalyDto,
@@ -46,6 +49,8 @@ export class AttendanceService {
     private readonly repo: AttendanceRepository,
     private readonly tenant: TenantContextService,
     private readonly audit: AuditService,
+    private readonly devices: DevicesService,
+    private readonly deviceRegistrations: DeviceRegistrationService,
   ) {}
 
   private scopedStoreIds(): string[] | null {
@@ -88,10 +93,28 @@ export class AttendanceService {
   }
 
   // ── reads ────────────────────────────────────────────────────────────────
-  listLogs(companyId: string, dto: ListLogsDto): Promise<AttendanceLog[]> {
+  async listLogs(companyId: string, dto: ListLogsDto): Promise<AttendanceLog[]> {
     const scope = this.scopedStoreIds();
-    if (scope && scope.length === 0) return Promise.resolve([]);
-    return this.repo.listLogs(companyId, dto, scope);
+    if (scope && scope.length === 0) return [];
+    const logs = await this.repo.listLogs(companyId, dto, scope);
+    return this.withMembershipRole(companyId, logs);
+  }
+
+  /** Attaches each employee's company membership role (the staff "user role")
+   * to the log's employee embed, in one batched lookup. */
+  private async withMembershipRole<T extends LogWithEmployee>(
+    companyId: string,
+    logs: T[],
+  ): Promise<T[]> {
+    const userIds = logs.map((l) => l.employee?.userId).filter((id): id is string => Boolean(id));
+    if (userIds.length === 0) return logs;
+    const roles = await this.repo.membershipRolesByUser(companyId, userIds);
+    for (const log of logs) {
+      if (log.employee?.userId) {
+        log.employee.membershipRole = roles.get(log.employee.userId) ?? null;
+      }
+    }
+    return logs;
   }
 
   async getLog(companyId: string, id: string): Promise<AttendanceLog> {
@@ -99,6 +122,21 @@ export class AttendanceService {
     if (!log) throw new NotFoundException('Attendance log not found.');
     this.assertStoreInScope(log.storeId);
     return log;
+  }
+
+  /** Delete an attendance log (manager action, audited). Cascades its breaks. */
+  async deleteLog(companyId: string, id: string): Promise<{ id: string }> {
+    const log = await this.getLog(companyId, id);
+    await this.repo.deleteLog(companyId, id);
+    await this.audit.log({
+      companyId,
+      actorUserId: this.currentUserId(),
+      action: 'attendance.log.deleted',
+      resource: 'attendance_log',
+      targetId: id,
+      meta: { employeeId: log.employeeId, storeId: log.storeId },
+    });
+    return { id };
   }
 
   // ── clock in / out + breaks ───────────────────────────────────────────────
@@ -228,6 +266,48 @@ export class AttendanceService {
       }
     }
     return { applied, failed: errors.length, errors };
+  }
+
+  /**
+   * QR-scan punch (point 19). The signed-in employee scanned a terminal QR:
+   *  1. validate the QR token (active terminal, current secret, within TTL),
+   *  2. resolve THIS employee from the auth token (never the client),
+   *  3. enforce the device gate (must be registered; fingerprint if company-on),
+   *  4. perform the action, stamped with method=qr + terminal/store.
+   * Any expired/invalid QR or unregistered device is rejected with a clear error.
+   */
+  async kioskPunch(companyId: string, dto: KioskPunchDto) {
+    const terminal = await this.devices.validateQrToken(companyId, dto.token);
+
+    const userId = this.tenant.get()?.user.userId;
+    const employee = userId ? await this.repo.employeeByUserId(companyId, userId) : null;
+    if (!employee) {
+      throw new ForbiddenException('Only employees can clock in. No employee profile is linked.');
+    }
+
+    // Device gate — registered (+ optional fingerprint) required for ANY action.
+    await this.deviceRegistrations.assertCanClockIn(companyId, employee.id, {
+      deviceToken: dto.deviceToken,
+      fingerprint: dto.fingerprint,
+    });
+
+    const at = new Date();
+    if (dto.action === 'clock_in') {
+      return this.clockIn(companyId, {
+        employeeId: employee.id,
+        storeId: terminal.storeId,
+        method: 'qr',
+        terminalId: terminal.id,
+        atUtc: at,
+      });
+    }
+    if (dto.action === 'clock_out') {
+      return this.clockOut(companyId, { employeeId: employee.id, atUtc: at });
+    }
+    if (dto.action === 'break_start') {
+      return this.breakStart(companyId, { employeeId: employee.id, atUtc: at });
+    }
+    return this.breakEnd(companyId, { employeeId: employee.id, atUtc: at });
   }
 
   private async resolveOpenLog(companyId: string, dto: PunchDto): Promise<AttendanceLog> {
@@ -377,7 +457,12 @@ export class AttendanceService {
 }
 
 type LogWithEmployee = AttendanceLog & {
-  employee?: { firstName: string; lastName: string } | null;
+  employee?: {
+    firstName: string;
+    lastName: string;
+    userId?: string | null;
+    membershipRole?: string | null;
+  } | null;
 };
 
 function minutesBetween(a: Date, b: Date): number {

@@ -3,6 +3,14 @@ import { jsonb, pgTable, text, timestamp, uuid } from 'drizzle-orm/pg-core';
 import { companyStatusEnum } from './enums';
 import { memberships } from './memberships';
 
+/** Per-company feature toggles stored on `companies.settings`. */
+export interface CompanySettings {
+  /** When true, a registered device must also match its captured fingerprint
+   * to clock in (attendance hardening). Off by default — registration alone
+   * is the primary gate. */
+  requireDeviceFingerprint?: boolean;
+}
+
 /**
  * Tenant root. Every tenant-scoped row references `companies.id` via a
  * `company_id` column and RLS policies pivot on it. `group_id` / `plan_id` are
@@ -21,10 +29,26 @@ export const companies = pgTable('companies', {
   status: companyStatusEnum('status').notNull().default('active'),
   planId: uuid('plan_id'),
   logoUrl: text('logo_url'),
+  /** Primary owner/chairman of the company (a platform user). */
+  ownerUserId: uuid('owner_user_id'),
+  /** Legal registration / company number. */
+  registrationNumber: text('registration_number'),
+  /** Primary contact email + phone for the company. */
+  companyEmail: text('company_email'),
+  phone: text('phone'),
   headOfficeAddress: text('head_office_address'),
+  /** Head-office location parts (the careers/profile cards render these). */
+  state: text('state'),
+  city: text('city'),
+  postalCode: text('postal_code'),
   offices: jsonb('offices')
     .notNull()
     .default(sql`'[]'::jsonb`),
+  /** Per-company toggles (e.g. attendance device-fingerprint enforcement). */
+  settings: jsonb('settings')
+    .notNull()
+    .default(sql`'{}'::jsonb`)
+    .$type<CompanySettings>(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true })
     .defaultNow()

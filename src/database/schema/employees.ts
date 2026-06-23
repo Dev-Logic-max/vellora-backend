@@ -42,11 +42,38 @@ export const employees = pgTable(
     lastName: text('last_name').notNull(),
     email: text('email'),
     phone: text('phone'),
+    /** Work/company email — distinct from the personal `email` used for the portal login. */
+    companyEmail: text('company_email'),
     role: text('role'),
     department: text('department'),
+    /** The user above this employee in the org (any role above Employee). Self-referential. */
+    supervisorId: uuid('supervisor_id'),
     status: employeeStatusEnum('status').notNull().default('active'),
     hireDate: date('hire_date'),
     contractType: contractTypeEnum('contract_type'),
+    /** Work-schedule arrangement, distinct from `contractType` (e.g. full_time/part_time/shift/remote). */
+    workScheduleType: text('work_schedule_type'),
+    weeklyHours: integer('weekly_hours'),
+    /** Contract end date (open-ended when null). */
+    contractEnd: date('contract_end'),
+    // ── personal information ──────────────────────────────────────────────
+    nationality: text('nationality'),
+    dateOfBirth: date('date_of_birth'),
+    gender: text('gender'),
+    maritalStatus: text('marital_status'),
+    /** National ID / passport number (shown in Personal; banking IBAN is separate). */
+    idCardNumber: text('id_card_number'),
+    iban: text('iban'),
+    // ── address ───────────────────────────────────────────────────────────
+    country: text('country'),
+    state: text('state'),
+    city: text('city'),
+    postalCode: text('postal_code'),
+    address: text('address'),
+    /** Adjustable benefits a company offers this employee (e.g. first-aid/medical). */
+    benefits: jsonb('benefits')
+      .notNull()
+      .default(sql`'{}'::jsonb`),
     avatarUrl: text('avatar_url'),
     locale: text('locale').notNull().default('en'),
     timezone: text('timezone').notNull().default('UTC'),
@@ -61,7 +88,52 @@ export const employees = pgTable(
     unique('employees_company_code_unique').on(table.companyId, table.uniqueCode),
     index('employees_company_id_idx').on(table.companyId),
     index('employees_primary_store_id_idx').on(table.primaryStoreId),
+    index('employees_supervisor_id_idx').on(table.supervisorId),
     index('employees_status_idx').on(table.status),
+  ],
+);
+
+/**
+ * Employee bank accounts (banking & accounts §). Tenant-scoped + RLS on
+ * company_id. Bank metadata (name/swift/brandColor/country) is denormalized from
+ * the `ref_banks` catalog so the row is self-describing even if the catalog
+ * changes. One employee may have several; `isPrimary` marks the payroll account.
+ */
+export const employeeBankAccounts = pgTable(
+  'employee_bank_accounts',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    employeeId: uuid('employee_id')
+      .notNull()
+      .references(() => employees.id, { onDelete: 'cascade' }),
+    /** Optional friendly label (e.g. "Salary", "Expenses"). */
+    label: text('label'),
+    /** ISO-3166-1 alpha-2 country the bank belongs to. */
+    country: text('country'),
+    bankName: text('bank_name').notNull(),
+    bankSwift: text('bank_swift'),
+    bankBrandColor: text('bank_brand_color'),
+    accountHolder: text('account_holder'),
+    iban: text('iban'),
+    accountNumber: text('account_number'),
+    /** ISO-4217 currency code for the account. */
+    currency: text('currency'),
+    /** Optional linked payment card: network (visa/mastercard/…) + last 4 digits. */
+    cardNetwork: text('card_network'),
+    cardLast4: text('card_last4'),
+    isPrimary: boolean('is_primary').notNull().default(false),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index('employee_bank_accounts_company_id_idx').on(table.companyId),
+    index('employee_bank_accounts_employee_id_idx').on(table.employeeId),
   ],
 );
 
@@ -191,6 +263,14 @@ export const employeesRelations = relations(employees, ({ one, many }) => ({
   contracts: many(contracts),
   qualifications: many(qualifications),
   medicals: many(medicals),
+  bankAccounts: many(employeeBankAccounts),
+}));
+
+export const employeeBankAccountsRelations = relations(employeeBankAccounts, ({ one }) => ({
+  employee: one(employees, {
+    fields: [employeeBankAccounts.employeeId],
+    references: [employees.id],
+  }),
 }));
 
 export const employeeStoresRelations = relations(employeeStores, ({ one }) => ({
@@ -210,3 +290,5 @@ export type Medical = typeof medicals.$inferSelect;
 export type NewMedical = typeof medicals.$inferInsert;
 export type EmpPreference = typeof empPreferences.$inferSelect;
 export type NewEmpPreference = typeof empPreferences.$inferInsert;
+export type EmployeeBankAccount = typeof employeeBankAccounts.$inferSelect;
+export type NewEmployeeBankAccount = typeof employeeBankAccounts.$inferInsert;

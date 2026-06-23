@@ -1,19 +1,31 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { and, count, eq } from 'drizzle-orm';
+import { and, count, eq, inArray, sql } from 'drizzle-orm';
 import { AuditService } from '../audit/audit.service';
 import { DatabaseService } from '../database/database.service';
 import {
   companies,
+  discounts,
+  employees,
+  entitlementOverrides,
   memberships,
+  plans,
   stores,
+  subscriptions,
+  users,
   type Company,
   type MembershipRole,
 } from '../database/schema';
-import type { CreateCompanyDto } from './dto/create-company.dto';
+import { defaultsForCountry } from './country-defaults';
+import type { CreateCompanyDto, CustomPricing } from './dto/create-company.dto';
 import type { UpdateCompanyDto } from './dto/update-company.dto';
 
 export interface CompanyWithRole extends Company {
   role: MembershipRole;
+  /** Directory summary for the companies table (privileged aggregates). */
+  storeCount: number;
+  employeeCount: number;
+  ownerName: string | null;
+  planName: string | null;
 }
 
 /**
@@ -29,39 +41,161 @@ export class CompaniesService {
   ) {}
 
   async createWithOwner(dto: CreateCompanyDto, ownerUserId: string): Promise<Company> {
-    return this.databaseService.db.transaction(async (tx) => {
-      const [company] = await tx
+    const ownerId = dto.ownerUserId ?? ownerUserId;
+    // Resolve the chosen plan key → plan row (custom pricing is handled below,
+    // not via a "custom" plan row). Privileged read of the global plans table.
+    const planId =
+      dto.planKey && dto.planKey !== 'custom'
+        ? ((
+            await this.databaseService.db.query.plans.findFirst({
+              where: eq(plans.key, dto.planKey),
+              columns: { id: true },
+            })
+          )?.id ?? null)
+        : null;
+
+    // Country-first (point 17): fall back to the country's currency/timezone when
+    // the client doesn't send explicit values.
+    const countryDefaults = defaultsForCountry(dto.country);
+
+    const company = await this.databaseService.db.transaction(async (tx) => {
+      const [created] = await tx
         .insert(companies)
         .values({
           name: dto.name,
           ...(dto.country ? { country: dto.country } : {}),
-          ...(dto.currency ? { currency: dto.currency } : {}),
-          ...(dto.timezone ? { timezone: dto.timezone } : {}),
+          currency: dto.currency ?? countryDefaults.currency,
+          timezone: dto.timezone ?? countryDefaults.timezone,
           groupId: dto.groupId ?? null,
+          ownerUserId: ownerId,
+          ...(dto.registrationNumber ? { registrationNumber: dto.registrationNumber } : {}),
+          ...(dto.companyEmail ? { companyEmail: dto.companyEmail } : {}),
+          ...(dto.phone ? { phone: dto.phone } : {}),
+          ...(dto.state ? { state: dto.state } : {}),
+          ...(dto.city ? { city: dto.city } : {}),
+          ...(dto.postalCode ? { postalCode: dto.postalCode } : {}),
+          ...(dto.headOfficeAddress ? { headOfficeAddress: dto.headOfficeAddress } : {}),
+          ...(dto.offices ? { offices: dto.offices } : {}),
+          ...(planId ? { planId } : {}),
         })
         .returning();
 
+      // The owner gets an owner membership (the chairman). If a different owner
+      // was chosen, the creator stays the acting member via this membership too.
       await tx.insert(memberships).values({
-        userId: ownerUserId,
-        companyId: company.id,
+        userId: ownerId,
+        companyId: created.id,
         role: 'owner',
         scopeType: 'company',
         scopeIds: [],
         status: 'active',
       });
 
-      return company;
+      return created;
     });
+
+    if (dto.planKey === 'custom' && dto.customPricing) {
+      await this.applyCustomPricing(company.id, dto.customPricing, ownerId);
+    }
+    return company;
   }
 
-  /** Companies the user is an active member of (cross-tenant; privileged). */
+  /**
+   * Persists negotiated custom pricing into the platform billing model: the
+   * per-unit prices + storage window land in the company's entitlement override
+   * (`limits.customPricing`), and the discount window into `discounts`. No new
+   * table — reuses the existing override/discount structures (decision: store on
+   * entitlement override).
+   */
+  private async applyCustomPricing(
+    companyId: string,
+    pricing: CustomPricing,
+    updatedBy: string,
+  ): Promise<void> {
+    const db = this.databaseService.db;
+    const limits: Record<string, unknown> = {
+      customPricing: {
+        pricePerEmployee: pricing.pricePerEmployee ?? null,
+        pricePerDevice: pricing.pricePerDevice ?? null,
+        extraStoragePricePerGb: pricing.extraStoragePricePerGb ?? null,
+        storageFrom: pricing.storageFrom ?? null,
+        storageTo: pricing.storageTo ?? null,
+      },
+    };
+    if (pricing.storageLimitGb !== undefined) limits.storage_gb = pricing.storageLimitGb;
+
+    await db
+      .insert(entitlementOverrides)
+      .values({ companyId, entitlements: {}, limits, updatedBy })
+      .onConflictDoUpdate({
+        target: entitlementOverrides.companyId,
+        set: { limits, updatedBy, updatedAt: new Date() },
+      });
+
+    if (pricing.discountPct !== undefined && pricing.discountPct > 0) {
+      await db.insert(discounts).values({
+        companyId,
+        pct: pricing.discountPct,
+        validFrom: pricing.discountFrom ? new Date(pricing.discountFrom) : null,
+        validTo: pricing.discountTo ? new Date(pricing.discountTo) : null,
+      });
+    }
+  }
+
+  /** Companies the user is an active member of (cross-tenant; privileged), each
+   * enriched with directory aggregates (stores, employees, owner, plan). */
   async listForUser(userId: string): Promise<CompanyWithRole[]> {
-    const rows = await this.databaseService.db
+    const db = this.databaseService.db;
+    const rows = await db
       .select({ company: companies, role: memberships.role })
       .from(memberships)
       .innerJoin(companies, eq(companies.id, memberships.companyId))
       .where(and(eq(memberships.userId, userId), eq(memberships.status, 'active')));
-    return rows.map((row) => ({ ...row.company, role: row.role }));
+
+    const ids = rows.map((r) => r.company.id);
+    if (ids.length === 0) return [];
+
+    // Batched aggregates keyed by company id (one query each).
+    const [storeRows, empRows, ownerRows, planRows] = await Promise.all([
+      db
+        .select({ companyId: stores.companyId, value: count() })
+        .from(stores)
+        .where(inArray(stores.companyId, ids))
+        .groupBy(stores.companyId),
+      db
+        .select({ companyId: employees.companyId, value: count() })
+        .from(employees)
+        .where(inArray(employees.companyId, ids))
+        .groupBy(employees.companyId),
+      db
+        .select({
+          companyId: memberships.companyId,
+          name: sql<string | null>`max(${users.name})`,
+        })
+        .from(memberships)
+        .innerJoin(users, eq(users.id, memberships.userId))
+        .where(and(inArray(memberships.companyId, ids), eq(memberships.role, 'owner')))
+        .groupBy(memberships.companyId),
+      db
+        .select({ companyId: subscriptions.companyId, name: plans.name })
+        .from(subscriptions)
+        .innerJoin(plans, eq(plans.id, subscriptions.planId))
+        .where(inArray(subscriptions.companyId, ids)),
+    ]);
+
+    const storeMap = new Map(storeRows.map((r) => [r.companyId, Number(r.value)]));
+    const empMap = new Map(empRows.map((r) => [r.companyId, Number(r.value)]));
+    const ownerMap = new Map(ownerRows.map((r) => [r.companyId, r.name]));
+    const planMap = new Map(planRows.map((r) => [r.companyId, r.name]));
+
+    return rows.map((row) => ({
+      ...row.company,
+      role: row.role,
+      storeCount: storeMap.get(row.company.id) ?? 0,
+      employeeCount: empMap.get(row.company.id) ?? 0,
+      ownerName: ownerMap.get(row.company.id) ?? null,
+      planName: planMap.get(row.company.id) ?? null,
+    }));
   }
 
   /** The caller's active tenant — RLS returns at most this one company. */
@@ -80,11 +214,33 @@ export class CompaniesService {
 
   async update(companyId: string, userId: string, dto: UpdateCompanyDto): Promise<Company> {
     await this.assertMember(companyId, userId);
+    // Shallow-merge company settings so partial toggles don't drop other keys.
+    let settingsPatch: Record<string, unknown> | undefined;
+    if (dto.settings !== undefined) {
+      const current = await this.databaseService.withTenant(companyId, (tx) =>
+        tx.query.companies.findFirst({
+          where: eq(companies.id, companyId),
+          columns: { settings: true },
+        }),
+      );
+      settingsPatch = { settings: { ...(current?.settings ?? {}), ...dto.settings } };
+    }
     const patch = {
       ...(dto.name !== undefined ? { name: dto.name } : {}),
       ...(dto.country !== undefined ? { country: dto.country } : {}),
       ...(dto.currency !== undefined ? { currency: dto.currency } : {}),
       ...(dto.timezone !== undefined ? { timezone: dto.timezone } : {}),
+      ...(dto.registrationNumber !== undefined
+        ? { registrationNumber: dto.registrationNumber }
+        : {}),
+      ...(dto.companyEmail !== undefined ? { companyEmail: dto.companyEmail || null } : {}),
+      ...(dto.phone !== undefined ? { phone: dto.phone } : {}),
+      ...(dto.state !== undefined ? { state: dto.state } : {}),
+      ...(dto.city !== undefined ? { city: dto.city } : {}),
+      ...(dto.postalCode !== undefined ? { postalCode: dto.postalCode } : {}),
+      ...(dto.headOfficeAddress !== undefined ? { headOfficeAddress: dto.headOfficeAddress } : {}),
+      ...(dto.offices !== undefined ? { offices: dto.offices } : {}),
+      ...(settingsPatch ?? {}),
     };
     const updated = await this.databaseService.withTenant(companyId, async (tx) => {
       const [row] = await tx

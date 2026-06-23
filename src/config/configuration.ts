@@ -48,6 +48,11 @@ export interface AppConfig {
   sentryDsn?: string;
   /** Public web app origin, used to build deep links in notifications/emails. */
   appUrl: string;
+  /** Attendance terminal QR settings. */
+  terminal: {
+    /** Seconds a clock-in QR stays valid before it rotates. */
+    qrTtlSeconds: number;
+  };
 }
 
 export default (): AppConfig => {
@@ -94,5 +99,8 @@ export default (): AppConfig => {
     },
     sentryDsn: process.env.SENTRY_DSN,
     appUrl: (corsOrigins[0] ?? 'http://localhost:3000').replace(/\/$/, ''),
+    terminal: {
+      qrTtlSeconds: parseInt(process.env.TERMINAL_QR_TTL_SECONDS ?? '180', 10),
+    },
   };
 };

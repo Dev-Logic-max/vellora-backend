@@ -12,7 +12,7 @@ import {
   Query,
   UseGuards,
 } from '@nestjs/common';
-import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
+import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { CompanyId } from '../common/decorators/company-id.decorator';
 import { RequireEntitlement } from '../common/decorators/require-entitlement.decorator';
 import { RequirePermission } from '../common/decorators/require-permission.decorator';
@@ -22,6 +22,7 @@ import { TenantGuard } from '../common/tenant/tenant.guard';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PlanGuard } from '../entitlements/plan.guard';
 import {
+  CreateBankAccountDto,
   CreateContractDto,
   CreateEmployeeDto,
   CreateMedicalDto,
@@ -66,6 +67,12 @@ export class EmployeesController {
     return this.employees.importCsv(companyId, dto.csv);
   }
 
+  @Get('supervisors')
+  @ApiOperation({ summary: 'Users above Employee in this company (supervisor picker)' })
+  supervisors(@CompanyId() companyId: string) {
+    return this.employees.listSupervisors(companyId);
+  }
+
   @Post()
   @UseGuards(RolesGuard)
   @Roles('owner', 'hr', 'area_manager', 'store_manager')
@@ -75,7 +82,7 @@ export class EmployeesController {
 
   @Get(':id')
   get(@CompanyId() companyId: string, @Param('id', ParseUUIDPipe) id: string) {
-    return this.employees.get(companyId, id);
+    return this.employees.getDetail(companyId, id);
   }
 
   @Patch(':id')
@@ -94,6 +101,14 @@ export class EmployeesController {
   @Roles('owner', 'hr')
   archive(@CompanyId() companyId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.employees.archive(companyId, id);
+  }
+
+  @Delete(':id')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'hr')
+  @ApiOperation({ summary: 'Permanently delete an employee (irreversible)' })
+  remove(@CompanyId() companyId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.employees.remove(companyId, id);
   }
 
   @Post(':id/invite')
@@ -133,6 +148,36 @@ export class EmployeesController {
     @Param('storeId', ParseUUIDPipe) storeId: string,
   ) {
     return this.employees.removeStoreLink(companyId, id, storeId);
+  }
+
+  // ── bank accounts ─────────────────────────────────────────────────────────
+  @Get(':id/bank-accounts')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'hr')
+  bankAccounts(@CompanyId() companyId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.employees.listBankAccounts(companyId, id);
+  }
+
+  @Post(':id/bank-accounts')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'hr')
+  addBankAccount(
+    @CompanyId() companyId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: CreateBankAccountDto,
+  ) {
+    return this.employees.addBankAccount(companyId, id, dto);
+  }
+
+  @Delete(':id/bank-accounts/:accountId')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'hr')
+  removeBankAccount(
+    @CompanyId() companyId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('accountId', ParseUUIDPipe) accountId: string,
+  ) {
+    return this.employees.removeBankAccount(companyId, id, accountId);
   }
 
   // ── contracts (permissioned) ─────────────────────────────────────────────

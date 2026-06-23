@@ -6,11 +6,16 @@
   "license": "UNLICENSED",
   "type": "commonjs",
   "scripts": {
+    "clean:build": "node -e \"const fs=require('fs');fs.rmSync('dist',{recursive:true,force:true});fs.rmSync('tsconfig.build.tsbuildinfo',{force:true})\"",
+    "prebuild": "npm run clean:build",
     "build": "nest build",
     "format": "prettier --write \"src/**/*.ts\" \"test/**/*.ts\"",
     "format:check": "prettier --check \"src/**/*.ts\" \"test/**/*.ts\"",
+    "prestart": "npm run clean:build",
     "start": "nest start",
+    "prestart:dev": "npm run clean:build",
     "start:dev": "nest start --watch",
+    "prestart:debug": "npm run clean:build",
     "start:debug": "nest start --debug --watch",
     "start:prod": "node dist/main.js",
     "lint": "eslint \"{src,test}/**/*.ts\"",
@@ -64,7 +69,7 @@
     "source-map-support": "^0.5.21",
     "ts-node": "^10.9.2",
     "tsconfig-paths": "^4.2.0",
-    "typescript": "^5.9.3",
+    "typescript": "6.0.3",
     "typescript-eslint": "^8.46.4"
   },
   "engines": {

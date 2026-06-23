@@ -1,6 +1,14 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
+import { PermissionsService } from '../permissions/permissions.service';
+import { MODULES } from '../permissions/permission-defaults';
 import { AdminRepository } from './admin.repository';
-import type { AssignPlanDto, FlagDto, OverrideDto, SetStatusDto } from './dto/admin.dto';
+import type {
+  AdminPermissionsDto,
+  AssignPlanDto,
+  FlagDto,
+  OverrideDto,
+  SetStatusDto,
+} from './dto/admin.dto';
 
 /**
  * Platform-console orchestration (P9-E). Cross-tenant by design; EVERY mutating
@@ -9,7 +17,10 @@ import type { AssignPlanDto, FlagDto, OverrideDto, SetStatusDto } from './dto/ad
  */
 @Injectable()
 export class AdminService {
-  constructor(private readonly repo: AdminRepository) {}
+  constructor(
+    private readonly repo: AdminRepository,
+    private readonly permissions: PermissionsService,
+  ) {}
 
   // ── tenants ─────────────────────────────────────────────────────────────────
   async listTenants() {
@@ -119,5 +130,30 @@ export class AdminService {
       targetCompanyId: companyId,
     });
     return { ok: true };
+  }
+
+  // ── cross-tenant permissions (super-admin matrix editor) ────────────────────
+  /** The configurable module catalogue (matrix rows). Platform-level constant. */
+  permissionModules() {
+    return { modules: MODULES };
+  }
+
+  /** Any company's role×module matrix — for the platform Permissions company picker. */
+  async getTenantPermissions(companyId: string) {
+    await this.getTenant(companyId); // 404s for unknown tenants
+    return this.permissions.getMatrix(companyId);
+  }
+
+  /** Edit any company's matrix as a platform operator (tenant-scoped under the hood + audited). */
+  async setTenantPermissions(actorUserId: string, companyId: string, dto: AdminPermissionsDto) {
+    await this.getTenant(companyId);
+    const result = await this.permissions.setOverrides(companyId, actorUserId, dto.entries);
+    await this.repo.writeAudit({
+      actorUserId,
+      action: 'tenant.permissions',
+      targetCompanyId: companyId,
+      meta: { count: dto.entries.length },
+    });
+    return result;
   }
 }

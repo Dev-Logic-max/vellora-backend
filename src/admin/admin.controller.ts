@@ -1,9 +1,16 @@
-import { Body, Controller, Get, Param, ParseUUIDPipe, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { PlatformGuard } from '../common/guards/platform.guard';
 import { AdminService } from './admin.service';
-import { AssignPlanDto, FlagDto, ImpersonateDto, OverrideDto, SetStatusDto } from './dto/admin.dto';
+import {
+  AdminPermissionsDto,
+  AssignPlanDto,
+  FlagDto,
+  ImpersonateDto,
+  OverrideDto,
+  SetStatusDto,
+} from './dto/admin.dto';
 
 /**
  * Platform console (P9-E, roles-and-access §3). Cross-tenant — gated by
@@ -53,6 +60,26 @@ export class AdminController {
     @Body() dto: OverrideDto,
   ) {
     return this.admin.setOverride(actor, id, dto);
+  }
+
+  // ── cross-tenant permissions (super-admin matrix editor) ────────────────────
+  @Get('permissions/modules')
+  permissionModules() {
+    return this.admin.permissionModules();
+  }
+
+  @Get('tenants/:id/permissions')
+  tenantPermissions(@Param('id', ParseUUIDPipe) id: string) {
+    return this.admin.getTenantPermissions(id);
+  }
+
+  @Put('tenants/:id/permissions')
+  setTenantPermissions(
+    @CurrentUser('userId') actor: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: AdminPermissionsDto,
+  ) {
+    return this.admin.setTenantPermissions(actor, id, dto);
   }
 
   // ── plans ──────────────────────────────────────────────────────────────────

@@ -27,6 +27,8 @@ export const stores = pgTable(
     category: text('category'),
     status: storeStatusEnum('status').notNull().default('active'),
     country: text('country'),
+    state: text('state'),
+    city: text('city'),
     address: text('address'),
     postalCode: text('postal_code'),
     timezone: text('timezone').notNull().default('UTC'),

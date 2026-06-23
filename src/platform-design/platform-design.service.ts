@@ -8,11 +8,24 @@ const SINGLETON_KEY = 'default';
 
 /** Sparse semantic-token overrides `{ '--token': 'R G B' }`. */
 type TokenMap = Record<string, string>;
+export type CalendarStyle = 'grid' | 'roster';
+export interface DesignPrefs {
+  density?: 'comfortable' | 'compact';
+  motion?: boolean;
+  tabsIcons?: boolean;
+}
 export interface ActiveDesign {
   themeKey: string;
   tokens: TokenMap;
+  calendarStyle: CalendarStyle;
+  prefs: DesignPrefs;
 }
-const DEFAULT_DESIGN: ActiveDesign = { themeKey: 'indigo', tokens: {} };
+const DEFAULT_DESIGN: ActiveDesign = {
+  themeKey: 'indigo',
+  tokens: {},
+  calendarStyle: 'grid',
+  prefs: {},
+};
 
 /**
  * Platform design settings (design module) — GLOBAL config, read on the
@@ -34,7 +47,12 @@ export class PlatformDesignService {
         where: eq(platformDesignSettings.key, SINGLETON_KEY),
       });
       if (!row) return DEFAULT_DESIGN;
-      return { themeKey: row.themeKey, tokens: (row.tokens ?? {}) as TokenMap };
+      return {
+        themeKey: row.themeKey,
+        tokens: (row.tokens ?? {}) as TokenMap,
+        calendarStyle: (row.calendarStyle as CalendarStyle) ?? 'grid',
+        prefs: (row.prefs ?? {}) satisfies DesignPrefs,
+      };
     } catch (err) {
       this.logger.warn(`design settings unavailable, serving defaults: ${String(err)}`);
       return DEFAULT_DESIGN;
@@ -46,6 +64,8 @@ export class PlatformDesignService {
     const patch = {
       ...(dto.themeKey !== undefined ? { themeKey: dto.themeKey } : {}),
       ...(dto.tokens !== undefined ? { tokens: dto.tokens } : {}),
+      ...(dto.calendarStyle !== undefined ? { calendarStyle: dto.calendarStyle } : {}),
+      ...(dto.prefs !== undefined ? { prefs: dto.prefs } : {}),
       updatedBy: userId ?? null,
     };
     await this.db.db
@@ -55,8 +75,11 @@ export class PlatformDesignService {
     return this.get();
   }
 
-  /** Restore the default accent (clears overrides). */
+  /** Restore the default accent (clears overrides + UI prefs + calendar style). */
   async reset(userId?: string): Promise<ActiveDesign> {
-    return this.update({ themeKey: 'indigo', tokens: {} }, userId);
+    return this.update(
+      { themeKey: 'indigo', tokens: {}, calendarStyle: 'grid', prefs: {} },
+      userId,
+    );
   }
 }

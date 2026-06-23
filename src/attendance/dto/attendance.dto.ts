@@ -66,6 +66,23 @@ export const syncBatchSchema = z.object({
 });
 export class SyncBatchDto extends createZodDto(syncBatchSchema) {}
 
+/**
+ * A QR-scan punch from the kiosk flow (point 19). The signed-in employee scans
+ * a terminal QR, the app validates the token + their registered device, then
+ * performs the action. The employee is resolved from the auth token (never the
+ * client) so no one can punch for someone else.
+ */
+export const kioskPunchSchema = z.object({
+  /** base64url(terminalId:secret) from the scanned QR. */
+  token: z.string().min(8).max(512),
+  action: z.enum(['clock_in', 'clock_out', 'break_start', 'break_end']),
+  /** Device token persisted on this device at registration (primary identity). */
+  deviceToken: z.string().max(128).optional(),
+  /** Optional fingerprint — only checked when the company enables it. */
+  fingerprint: z.string().max(256).optional(),
+});
+export class KioskPunchDto extends createZodDto(kioskPunchSchema) {}
+
 export const createCorrectionSchema = z.object({
   field: z.enum(['clock_in_utc', 'clock_out_utc', 'status']),
   newValue: z.string().min(1).max(120),

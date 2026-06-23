@@ -13,6 +13,7 @@ import type { Employee, NewEmployee } from '../database/schema';
 import { parseEmployeeCsv, toEmployeeCsv } from './employee-csv';
 import { EmployeesRepository, type EmployeeFilters } from './employees.repository';
 import type {
+  CreateBankAccountDto,
   CreateContractDto,
   CreateEmployeeDto,
   CreateMedicalDto,
@@ -82,6 +83,18 @@ export class EmployeesService {
     return employee;
   }
 
+  /** Public profile read: detail + the user's company membership role. */
+  async getDetail(companyId: string, id: string) {
+    const employee = await this.get(companyId, id);
+    const membershipRole = await this.repo.membershipRoleForUser(companyId, employee.userId);
+    return { ...employee, membershipRole };
+  }
+
+  /** Users above Employee in this company — the supervisor picker source. */
+  listSupervisors(companyId: string) {
+    return this.repo.listSupervisorCandidates(companyId);
+  }
+
   /** Generates the next `<STORE>-EMP-NNN` code for the company. */
   private async nextCode(companyId: string, primaryStoreId?: string): Promise<string> {
     let prefix = 'EMP';
@@ -100,9 +113,14 @@ export class EmployeesService {
   async create(companyId: string, dto: CreateEmployeeDto): Promise<Employee> {
     await this.billing.assertWithinLimit(companyId, 'employees');
     if (dto.primaryStoreId) this.assertStoreInScope(dto.primaryStoreId);
-    const { secondaryStores, uniqueCode, ...rest } = dto;
+    const { secondaryStores, uniqueCode, companyEmail, ...rest } = dto;
     const code = uniqueCode ?? (await this.nextCode(companyId, dto.primaryStoreId));
-    const values: NewEmployee = { companyId, uniqueCode: code, ...rest };
+    const values: NewEmployee = {
+      companyId,
+      uniqueCode: code,
+      ...rest,
+      ...(companyEmail ? { companyEmail } : {}),
+    };
     const links = (secondaryStores ?? []).map((s) => ({
       storeId: s.storeId,
       relation: s.relation,
@@ -122,6 +140,13 @@ export class EmployeesService {
   async archive(companyId: string, id: string): Promise<Employee> {
     await this.get(companyId, id);
     return this.repo.update(companyId, id, { status: 'archived' });
+  }
+
+  /** Permanently delete an employee + their sub-rows (irreversible). */
+  async remove(companyId: string, id: string): Promise<{ deleted: true }> {
+    await this.get(companyId, id);
+    await this.repo.remove(companyId, id);
+    return { deleted: true };
   }
 
   // ── invite ────────────────────────────────────────────────────────────────
@@ -228,6 +253,23 @@ export class EmployeesService {
   async removeStoreLink(companyId: string, id: string, storeId: string) {
     await this.get(companyId, id);
     await this.repo.removeLink(companyId, id, storeId);
+    return { removed: true };
+  }
+
+  // ── bank accounts ───────────────────────────────────────────────────────
+  async listBankAccounts(companyId: string, id: string) {
+    await this.get(companyId, id);
+    return this.repo.listBankAccounts(companyId, id);
+  }
+
+  async addBankAccount(companyId: string, id: string, dto: CreateBankAccountDto) {
+    await this.get(companyId, id);
+    return this.repo.addBankAccount(companyId, { companyId, employeeId: id, ...dto });
+  }
+
+  async removeBankAccount(companyId: string, id: string, accountId: string) {
+    await this.get(companyId, id);
+    await this.repo.removeBankAccount(companyId, id, accountId);
     return { removed: true };
   }
 

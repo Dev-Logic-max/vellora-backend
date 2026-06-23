@@ -114,6 +114,19 @@ export class DevicesRepository {
     );
   }
 
+  /** The single terminal bound to a store, if one exists (one-per-store). */
+  findTerminalByStore(companyId: string, storeId: string) {
+    return this.db.withTenant(companyId, (tx) =>
+      tx.query.terminals.findFirst({ where: eq(terminals.storeId, storeId) }),
+    );
+  }
+
+  deleteTerminal(companyId: string, id: string): Promise<void> {
+    return this.db.withTenant(companyId, async (tx) => {
+      await tx.delete(terminals).where(eq(terminals.id, id));
+    });
+  }
+
   createTerminal(companyId: string, values: NewTerminal): Promise<Terminal> {
     return this.db.withTenant(companyId, async (tx) => {
       const [row] = await tx.insert(terminals).values(values).returning();
