@@ -1,5 +1,6 @@
 import { relations } from 'drizzle-orm';
 import {
+  boolean,
   index,
   integer,
   jsonb,
@@ -33,7 +34,24 @@ export const plans = pgTable('plans', {
   limitsJson: jsonb('limits_json').notNull().default({}),
   /** { month?: priceId, year?: priceId } — Stripe Price ids per interval. */
   stripePriceIds: jsonb('stripe_price_ids').notNull().default({}),
+  // ── Card presentation (editable in the Pricing module) ──────────────────────
+  /** Short one-liner under the plan name on the card. */
+  tagline: text('tagline'),
+  /** Longer blurb for the card / pricing page. */
+  description: text('description'),
+  /** Bullet feature list shown on the card (string[]). */
+  highlights: jsonb('highlights').notNull().default([]).$type<string[]>(),
+  /** Renders the "Popular" ribbon on the card. */
+  popular: boolean('popular').notNull().default(false),
+  /** When false the plan is hidden from registration/company-create cards. */
+  isActive: boolean('is_active').notNull().default(true),
+  /** Card display order (ascending). */
+  sortOrder: integer('sort_order').notNull().default(0),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+  updatedAt: timestamp('updated_at', { withTimezone: true })
+    .defaultNow()
+    .notNull()
+    .$onUpdate(() => new Date()),
 });
 
 /**

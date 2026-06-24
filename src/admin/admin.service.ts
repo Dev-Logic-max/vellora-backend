@@ -7,6 +7,7 @@ import type {
   AssignPlanDto,
   FlagDto,
   OverrideDto,
+  PlanUpsertDto,
   SetStatusDto,
 } from './dto/admin.dto';
 
@@ -64,6 +65,51 @@ export class AdminService {
   // ── plans & entitlements ─────────────────────────────────────────────────────
   listPlans() {
     return this.repo.listPlans();
+  }
+
+  /** Map the editable DTO → plan column patch (limits→limitsJson, etc.). */
+  private toPlanPatch(dto: PlanUpsertDto) {
+    return {
+      ...(dto.key !== undefined ? { key: dto.key } : {}),
+      ...(dto.name !== undefined ? { name: dto.name } : {}),
+      ...(dto.tier !== undefined ? { tier: dto.tier } : {}),
+      ...(dto.priceMonth !== undefined ? { priceMonth: dto.priceMonth } : {}),
+      ...(dto.priceYear !== undefined ? { priceYear: dto.priceYear } : {}),
+      ...(dto.currency !== undefined ? { currency: dto.currency } : {}),
+      ...(dto.tagline !== undefined ? { tagline: dto.tagline } : {}),
+      ...(dto.description !== undefined ? { description: dto.description } : {}),
+      ...(dto.highlights !== undefined ? { highlights: dto.highlights } : {}),
+      ...(dto.popular !== undefined ? { popular: dto.popular } : {}),
+      ...(dto.isActive !== undefined ? { isActive: dto.isActive } : {}),
+      ...(dto.sortOrder !== undefined ? { sortOrder: dto.sortOrder } : {}),
+      ...(dto.limits !== undefined ? { limitsJson: dto.limits } : {}),
+      ...(dto.entitlements !== undefined ? { entitlementsJson: dto.entitlements } : {}),
+    };
+  }
+
+  async updatePlan(actorUserId: string, id: string, dto: PlanUpsertDto) {
+    const existing = await this.repo.getPlan(id);
+    if (!existing) throw new NotFoundException('Plan not found.');
+    const row = await this.repo.updatePlan(id, this.toPlanPatch(dto));
+    await this.repo.writeAudit({
+      actorUserId,
+      action: 'plan.update',
+      meta: { id, name: row.name },
+    });
+    return row;
+  }
+
+  async createPlan(actorUserId: string, dto: PlanUpsertDto) {
+    if (!dto.key || !dto.name) {
+      throw new NotFoundException('A new plan needs a key and name.');
+    }
+    const row = await this.repo.createPlan({
+      key: dto.key,
+      name: dto.name,
+      ...this.toPlanPatch(dto),
+    });
+    await this.repo.writeAudit({ actorUserId, action: 'plan.create', meta: { key: dto.key } });
+    return row;
   }
 
   async assignPlan(actorUserId: string, companyId: string, dto: AssignPlanDto) {

@@ -46,6 +46,8 @@ export const createCompanySchema = z.object({
   groupId: z.uuid().optional(),
   /** Owner/chairman; defaults to the creating user when omitted. */
   ownerUserId: z.uuid().optional(),
+  /** Industry/category (retail, hospitality, …). */
+  category: z.string().max(40).optional(),
   registrationNumber: z.string().max(80).optional(),
   companyEmail: z.email().max(160).optional().or(z.literal('')),
   phone: z.string().max(40).optional(),
