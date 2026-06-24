@@ -29,6 +29,26 @@ export const impersonateSchema = z.object({
 });
 export class ImpersonateDto extends createZodDto(impersonateSchema) {}
 
+/** Pricing-module plan edit/create (super-admin). All fields optional on update;
+ * create needs key + name. limits/entitlements are free-form maps. */
+export const planUpsertSchema = z.object({
+  key: z.string().min(1).max(40).optional(),
+  name: z.string().min(1).max(60).optional(),
+  tier: z.number().int().min(0).optional(),
+  priceMonth: z.string().optional(),
+  priceYear: z.string().optional(),
+  currency: z.string().min(3).max(3).optional(),
+  tagline: z.string().max(120).nullable().optional(),
+  description: z.string().max(400).nullable().optional(),
+  highlights: z.array(z.string()).optional(),
+  popular: z.boolean().optional(),
+  isActive: z.boolean().optional(),
+  sortOrder: z.number().int().optional(),
+  limits: z.record(z.string(), z.number().int()).optional(),
+  entitlements: z.record(z.string(), z.boolean()).optional(),
+});
+export class PlanUpsertDto extends createZodDto(planUpsertSchema) {}
+
 /** Cross-tenant permission-matrix edit (platform users editing any company). */
 export const adminPermissionsSchema = z.object({
   entries: z
