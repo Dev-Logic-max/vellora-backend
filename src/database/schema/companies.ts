@@ -33,9 +33,16 @@ export const companies = pgTable('companies', {
   ownerUserId: uuid('owner_user_id'),
   /** Legal registration / company number. */
   registrationNumber: text('registration_number'),
+  /** Industry/category (retail, hospitality, automobile, textile, …). */
+  category: text('category'),
   /** Primary contact email + phone for the company. */
   companyEmail: text('company_email'),
   phone: text('phone'),
+  /** Owner contact fallbacks captured at registration — used to reach the owner
+   * if email verification fails or the company needs manual support. */
+  ownerPhone: text('owner_phone'),
+  ownerSecondaryEmail: text('owner_secondary_email'),
+  ownerPersonalEmail: text('owner_personal_email'),
   headOfficeAddress: text('head_office_address'),
   /** Head-office location parts (the careers/profile cards render these). */
   state: text('state'),

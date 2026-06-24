@@ -9,6 +9,7 @@ import {
   FlagDto,
   ImpersonateDto,
   OverrideDto,
+  PlanUpsertDto,
   SetStatusDto,
 } from './dto/admin.dto';
 
@@ -82,10 +83,24 @@ export class AdminController {
     return this.admin.setTenantPermissions(actor, id, dto);
   }
 
-  // ── plans ──────────────────────────────────────────────────────────────────
+  // ── plans (Pricing module) ──────────────────────────────────────────────────
   @Get('plans')
   plans() {
     return this.admin.listPlans();
+  }
+
+  @Post('plans')
+  createPlan(@CurrentUser('userId') actor: string, @Body() dto: PlanUpsertDto) {
+    return this.admin.createPlan(actor, dto);
+  }
+
+  @Put('plans/:id')
+  updatePlan(
+    @CurrentUser('userId') actor: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: PlanUpsertDto,
+  ) {
+    return this.admin.updatePlan(actor, id, dto);
   }
 
   // ── feature flags ─────────────────────────────────────────────────────────────

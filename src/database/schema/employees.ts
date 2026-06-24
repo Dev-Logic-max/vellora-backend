@@ -14,10 +14,12 @@ import {
 } from 'drizzle-orm/pg-core';
 import { companies } from './companies';
 import {
+  activationRequestStatusEnum,
   contractTypeEnum,
   credentialStatusEnum,
   employeeStatusEnum,
   employeeStoreRelationEnum,
+  membershipRoleEnum,
 } from './enums';
 import { stores } from './stores';
 import { users } from './users';
@@ -162,7 +164,12 @@ export const employeeStores = pgTable(
   ],
 );
 
-/** Employment contracts (03-employees §3). `salary` is returned as a string (numeric). */
+/**
+ * Employment contracts (03-employees §3) with a managed lifecycle. A contract is
+ * `active` until cancelled; a cancelled contract is retained (with audit) until
+ * permanently deleted (soft-delete via `deletedAt`). Extend = move `endDate`.
+ * `salary` is returned as a string (numeric).
+ */
 export const contracts = pgTable(
   'contracts',
   {
@@ -173,6 +180,8 @@ export const contracts = pgTable(
     employeeId: uuid('employee_id')
       .notNull()
       .references(() => employees.id, { onDelete: 'cascade' }),
+    /** Optional friendly title (e.g. "2026 Barista contract"). */
+    title: text('title'),
     type: contractTypeEnum('type').notNull().default('full_time'),
     startDate: date('start_date').notNull(),
     endDate: date('end_date'),
@@ -180,9 +189,61 @@ export const contracts = pgTable(
     salary: numeric('salary'),
     currency: text('currency').notNull().default('USD'),
     docId: uuid('doc_id'),
+    /** 'active' | 'cancelled' — text to match the additive migration. */
+    status: text('status').notNull().default('active'),
+    cancelReason: text('cancel_reason'),
+    cancelledAt: timestamp('cancelled_at', { withTimezone: true }),
+    cancelledBy: uuid('cancelled_by'),
+    /** Soft-delete: a cancelled contract is permanently removed by setting this. */
+    deletedAt: timestamp('deleted_at', { withTimezone: true }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
   },
   (table) => [index('contracts_employee_id_idx').on(table.employeeId)],
+);
+
+/**
+ * The user-activation approval queue. When an upper-role user creates a login (or
+ * someone self-registers), the membership is created INACTIVE and a pending
+ * request is raised here. HR/admin approve (→ Supabase invite, membership active)
+ * or reject (→ 24h re-apply cooldown). Plan limits count active memberships only.
+ * Tenant-scoped + RLS on company_id.
+ */
+export const activationRequests = pgTable(
+  'activation_requests',
+  {
+    id: uuid('id').defaultRandom().primaryKey(),
+    companyId: uuid('company_id')
+      .notNull()
+      .references(() => companies.id, { onDelete: 'cascade' }),
+    employeeId: uuid('employee_id').references(() => employees.id, { onDelete: 'cascade' }),
+    userId: uuid('user_id').references(() => users.id, { onDelete: 'set null' }),
+    membershipId: uuid('membership_id'),
+    email: text('email').notNull(),
+    requestedRole: membershipRoleEnum('requested_role').notNull().default('employee'),
+    status: activationRequestStatusEnum('status').notNull().default('pending'),
+    /** 'created' (by an upper role) | 'self_register'. */
+    source: text('source').notNull().default('created'),
+    requestedBy: uuid('requested_by').references(() => users.id, { onDelete: 'set null' }),
+    decidedBy: uuid('decided_by').references(() => users.id, { onDelete: 'set null' }),
+    decidedAt: timestamp('decided_at', { withTimezone: true }),
+    rejectReason: text('reject_reason'),
+    /** Earliest a rejected applicant may re-apply (reject + 24h). */
+    cooldownUntil: timestamp('cooldown_until', { withTimezone: true }),
+    createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+    updatedAt: timestamp('updated_at', { withTimezone: true })
+      .defaultNow()
+      .notNull()
+      .$onUpdate(() => new Date()),
+  },
+  (table) => [
+    index('activation_requests_company_id_idx').on(table.companyId),
+    index('activation_requests_status_idx').on(table.status),
+    index('activation_requests_employee_id_idx').on(table.employeeId),
+  ],
 );
 
 /** Certifications with expiry tracking (paid). `status` cached; display state derived from `expires`. */
@@ -278,6 +339,18 @@ export const employeeStoresRelations = relations(employeeStores, ({ one }) => ({
   store: one(stores, { fields: [employeeStores.storeId], references: [stores.id] }),
 }));
 
+export const activationRequestsRelations = relations(activationRequests, ({ one }) => ({
+  company: one(companies, {
+    fields: [activationRequests.companyId],
+    references: [companies.id],
+  }),
+  employee: one(employees, {
+    fields: [activationRequests.employeeId],
+    references: [employees.id],
+  }),
+  user: one(users, { fields: [activationRequests.userId], references: [users.id] }),
+}));
+
 export type Employee = typeof employees.$inferSelect;
 export type NewEmployee = typeof employees.$inferInsert;
 export type EmployeeStore = typeof employeeStores.$inferSelect;
@@ -292,3 +365,5 @@ export type EmpPreference = typeof empPreferences.$inferSelect;
 export type NewEmpPreference = typeof empPreferences.$inferInsert;
 export type EmployeeBankAccount = typeof employeeBankAccounts.$inferSelect;
 export type NewEmployeeBankAccount = typeof employeeBankAccounts.$inferInsert;
+export type ActivationRequest = typeof activationRequests.$inferSelect;
+export type NewActivationRequest = typeof activationRequests.$inferInsert;
