@@ -22,14 +22,19 @@ import { TenantGuard } from '../common/tenant/tenant.guard';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PlanGuard } from '../entitlements/plan.guard';
 import {
+  ApproveActivationDto,
+  CancelContractDto,
   CreateBankAccountDto,
   CreateContractDto,
   CreateEmployeeDto,
   CreateMedicalDto,
   CreateQualificationDto,
+  ExtendContractDto,
   ImportEmployeesDto,
   InviteEmployeeDto,
+  ListActivationRequestsDto,
   ListEmployeesDto,
+  RejectActivationDto,
   UpdateEmployeeDto,
   UpdatePreferencesDto,
   UpsertStoreLinkDto,
@@ -71,6 +76,39 @@ export class EmployeesController {
   @ApiOperation({ summary: 'Users above Employee in this company (supervisor picker)' })
   supervisors(@CompanyId() companyId: string) {
     return this.employees.listSupervisors(companyId);
+  }
+
+  // ── activation requests (HR/admin approval queue) ─────────────────────────
+  @Get('activation-requests')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'hr')
+  @ApiOperation({ summary: 'Pending/decided user-activation requests for this company' })
+  activationRequests(@CompanyId() companyId: string, @Query() query: ListActivationRequestsDto) {
+    return this.employees.listActivationRequests(companyId, query.status);
+  }
+
+  @Post('activation-requests/:requestId/approve')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'hr')
+  @ApiOperation({ summary: 'Approve a request → invite the user + activate membership' })
+  approveActivation(
+    @CompanyId() companyId: string,
+    @Param('requestId', ParseUUIDPipe) requestId: string,
+    @Body() dto: ApproveActivationDto,
+  ) {
+    return this.employees.approveActivation(companyId, requestId, dto.redirectTo);
+  }
+
+  @Post('activation-requests/:requestId/reject')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'hr')
+  @ApiOperation({ summary: 'Reject a request (24h re-apply cooldown)' })
+  rejectActivation(
+    @CompanyId() companyId: string,
+    @Param('requestId', ParseUUIDPipe) requestId: string,
+    @Body() dto: RejectActivationDto,
+  ) {
+    return this.employees.rejectActivation(companyId, requestId, dto.reason);
   }
 
   @Post()
@@ -197,6 +235,44 @@ export class EmployeesController {
     @Body() dto: CreateContractDto,
   ) {
     return this.employees.addContract(companyId, id, dto);
+  }
+
+  @Patch(':id/contracts/:contractId/extend')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'hr')
+  @ApiOperation({ summary: 'Extend an active contract (move its end date)' })
+  extendContract(
+    @CompanyId() companyId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('contractId', ParseUUIDPipe) contractId: string,
+    @Body() dto: ExtendContractDto,
+  ) {
+    return this.employees.extendContract(companyId, id, contractId, dto.endDate);
+  }
+
+  @Post(':id/contracts/:contractId/cancel')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'hr')
+  @ApiOperation({ summary: 'Cancel a contract (kept until permanently deleted)' })
+  cancelContract(
+    @CompanyId() companyId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('contractId', ParseUUIDPipe) contractId: string,
+    @Body() dto: CancelContractDto,
+  ) {
+    return this.employees.cancelContract(companyId, id, contractId, dto.reason);
+  }
+
+  @Delete(':id/contracts/:contractId')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'hr')
+  @ApiOperation({ summary: 'Permanently delete a cancelled contract' })
+  deleteContract(
+    @CompanyId() companyId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('contractId', ParseUUIDPipe) contractId: string,
+  ) {
+    return this.employees.deleteContract(companyId, id, contractId);
   }
 
   // ── qualifications (paid) ─────────────────────────────────────────────────

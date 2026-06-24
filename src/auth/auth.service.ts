@@ -4,7 +4,7 @@ import { and, eq } from 'drizzle-orm';
 import { createRemoteJWKSet, decodeJwt, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import type { AppConfig } from '../config/configuration';
 import { DatabaseService } from '../database/database.service';
-import { memberships, users, type User } from '../database/schema';
+import { companies, memberships, users, type User } from '../database/schema';
 import type { AuthenticatedUser, MembershipContext } from '../common/types/authenticated-user';
 
 /**
@@ -49,6 +49,9 @@ export class AuthService {
     }
 
     const user = await this.findOrProvisionUser(supabaseUid, email, this.readName(claims));
+    // A valid Supabase session means the email is confirmed (confirmation is
+    // required), so promote any company this owner registered from pending→active.
+    await this.promotePendingCompanies(user.id);
     const ctx = await this.loadMemberships(user.id);
     const active = this.pickActiveMembership(ctx, requestedCompanyId);
 
@@ -146,6 +149,19 @@ export class AuthService {
       })
       .returning();
     return created;
+  }
+
+  /**
+   * Promote companies this user OWNS from `pending` → `active`. A pending company
+   * is one created at public registration; a verified login confirms the owner's
+   * email, so the tenant goes live. Privileged update (no RLS scope yet on first
+   * login). No-op when the owner has no pending companies.
+   */
+  private async promotePendingCompanies(userId: string): Promise<void> {
+    await this.databaseService.db
+      .update(companies)
+      .set({ status: 'active' })
+      .where(and(eq(companies.ownerUserId, userId), eq(companies.status, 'pending')));
   }
 
   private async loadMemberships(userId: string): Promise<MembershipContext[]> {

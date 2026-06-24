@@ -64,6 +64,20 @@ export const CONTRACT_TYPES = [
 export type ContractType = (typeof CONTRACT_TYPES)[number];
 export const contractTypeEnum = pgEnum('contract_type', CONTRACT_TYPES);
 
+/** Contract lifecycle (employee-module batch 3). `cancelled` rows are kept until
+ * permanently deleted (soft-delete via `deletedAt`). Stored as text on the row. */
+export const CONTRACT_STATUSES = ['active', 'cancelled'] as const;
+export type ContractStatus = (typeof CONTRACT_STATUSES)[number];
+
+/** Activation-request lifecycle: a user created/registered in a pending state is
+ * approved (→ Supabase invite) or rejected (→ 24h re-apply cooldown). */
+export const ACTIVATION_REQUEST_STATUSES = ['pending', 'approved', 'rejected'] as const;
+export type ActivationRequestStatus = (typeof ACTIVATION_REQUEST_STATUSES)[number];
+export const activationRequestStatusEnum = pgEnum(
+  'activation_request_status',
+  ACTIVATION_REQUEST_STATUSES,
+);
+
 /** How a secondary store link is used (03-employees §3). The primary store lives on the employee row. */
 export const EMPLOYEE_STORE_RELATIONS = ['secondary', 'guest', 'peak'] as const;
 export type EmployeeStoreRelation = (typeof EMPLOYEE_STORE_RELATIONS)[number];

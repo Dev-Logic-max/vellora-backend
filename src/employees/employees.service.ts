@@ -11,6 +11,7 @@ import { BillingService } from '../billing/billing.service';
 import { TenantContextService } from '../common/tenant/tenant-context.service';
 import type { Employee, NewEmployee } from '../database/schema';
 import { parseEmployeeCsv, toEmployeeCsv } from './employee-csv';
+import { ActivationRequestsService } from './activation-requests.service';
 import { EmployeesRepository, type EmployeeFilters } from './employees.repository';
 import type {
   CreateBankAccountDto,
@@ -40,6 +41,7 @@ export class EmployeesService {
     private readonly tenant: TenantContextService,
     private readonly config: ConfigService<AppConfig, true>,
     private readonly billing: BillingService,
+    private readonly activation: ActivationRequestsService,
   ) {}
 
   /** Store ids the caller may see, or null for "all company stores". */
@@ -95,6 +97,19 @@ export class EmployeesService {
     return this.repo.listSupervisorCandidates(companyId);
   }
 
+  // ── activation requests (delegate to the workflow service) ─────────────────
+  listActivationRequests(companyId: string, status?: 'pending' | 'approved' | 'rejected') {
+    return this.activation.list(companyId, status);
+  }
+
+  approveActivation(companyId: string, requestId: string, redirectTo?: string) {
+    return this.activation.approve(companyId, requestId, redirectTo);
+  }
+
+  rejectActivation(companyId: string, requestId: string, reason?: string) {
+    return this.activation.reject(companyId, requestId, reason);
+  }
+
   /** Generates the next `<STORE>-EMP-NNN` code for the company. */
   private async nextCode(companyId: string, primaryStoreId?: string): Promise<string> {
     let prefix = 'EMP';
@@ -113,7 +128,9 @@ export class EmployeesService {
   async create(companyId: string, dto: CreateEmployeeDto): Promise<Employee> {
     await this.billing.assertWithinLimit(companyId, 'employees');
     if (dto.primaryStoreId) this.assertStoreInScope(dto.primaryStoreId);
-    const { secondaryStores, uniqueCode, companyEmail, ...rest } = dto;
+    // Pull the platform-login fields out — they don't belong on the employee row.
+    const { secondaryStores, uniqueCode, companyEmail, membershipRole, accountEmail, ...rest } =
+      dto;
     const code = uniqueCode ?? (await this.nextCode(companyId, dto.primaryStoreId));
     const values: NewEmployee = {
       companyId,
@@ -125,7 +142,26 @@ export class EmployeesService {
       storeId: s.storeId,
       relation: s.relation,
     }));
-    return this.repo.create(companyId, values, links);
+    const employee = await this.repo.create(companyId, values, links);
+
+    // When a platform role was chosen, raise a PENDING activation request (the
+    // login is provisioned + the membership activated only on HR/admin approval).
+    if (membershipRole) {
+      const loginEmail = accountEmail || dto.email;
+      if (!loginEmail) {
+        throw new BadRequestException(
+          'An email is required to create a login for the selected role.',
+        );
+      }
+      await this.activation.raise({
+        companyId,
+        employeeId: employee.id,
+        email: loginEmail,
+        role: membershipRole,
+        source: 'created',
+      });
+    }
+    return employee;
   }
 
   async update(companyId: string, id: string, dto: UpdateEmployeeDto): Promise<Employee> {
@@ -273,7 +309,7 @@ export class EmployeesService {
     return { removed: true };
   }
 
-  // ── contracts ─────────────────────────────────────────────────────────────
+  // ── contracts (managed lifecycle) ─────────────────────────────────────────
   async listContracts(companyId: string, id: string) {
     await this.get(companyId, id);
     return this.repo.listContracts(companyId, id);
@@ -284,6 +320,7 @@ export class EmployeesService {
     return this.repo.addContract(companyId, {
       companyId,
       employeeId: id,
+      title: dto.title,
       type: dto.type,
       startDate: dto.startDate,
       endDate: dto.endDate,
@@ -292,6 +329,47 @@ export class EmployeesService {
       currency: dto.currency,
       docId: dto.docId,
     });
+  }
+
+  private async getContractOrThrow(companyId: string, id: string, contractId: string) {
+    await this.get(companyId, id);
+    const contract = await this.repo.findContract(companyId, id, contractId);
+    if (!contract) throw new NotFoundException('Contract not found.');
+    return contract;
+  }
+
+  /** Extend (or re-open) a contract by moving its end date. Only active ones. */
+  async extendContract(companyId: string, id: string, contractId: string, endDate: string | null) {
+    const contract = await this.getContractOrThrow(companyId, id, contractId);
+    if (contract.status !== 'active') {
+      throw new BadRequestException('Only an active contract can be extended.');
+    }
+    return this.repo.updateContract(companyId, contractId, { endDate });
+  }
+
+  /** Cancel a contract — kept (cancelled) until permanently deleted. */
+  async cancelContract(companyId: string, id: string, contractId: string, reason?: string) {
+    const contract = await this.getContractOrThrow(companyId, id, contractId);
+    if (contract.status === 'cancelled') {
+      throw new BadRequestException('This contract is already cancelled.');
+    }
+    const actor = this.tenant.get()?.user?.userId ?? null;
+    return this.repo.updateContract(companyId, contractId, {
+      status: 'cancelled',
+      cancelReason: reason ?? null,
+      cancelledAt: new Date(),
+      cancelledBy: actor,
+    });
+  }
+
+  /** Permanently delete a contract — only allowed once it has been cancelled. */
+  async deleteContract(companyId: string, id: string, contractId: string) {
+    const contract = await this.getContractOrThrow(companyId, id, contractId);
+    if (contract.status !== 'cancelled') {
+      throw new BadRequestException('Cancel the contract before deleting it.');
+    }
+    await this.repo.softDeleteContract(companyId, contractId);
+    return { deleted: true };
   }
 
   // ── qualifications (paid) ────────────────────────────────────────────────

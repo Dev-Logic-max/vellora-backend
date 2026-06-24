@@ -11,6 +11,7 @@
 import { and, eq } from 'drizzle-orm';
 import type { ScopeType } from '../schema';
 import type { SeedContext, SeedModule } from './seed-context';
+import { PLAN_DEFS } from '../../billing/plan-defs';
 
 const PASSWORD = process.env.SEED_PASSWORD ?? 'Vellora123!';
 const COMPANY_NAME = 'Vellora Demo Co';
@@ -284,63 +285,7 @@ async function run(ctx: SeedContext): Promise<void> {
   log('→ plans + subscription…');
   // Global plan catalogue (15-billing). limits: -1 = unlimited. Free is the
   // implicit base in EntitlementsService; we still seed it for the UI compare.
-  const PLAN_DEFS = [
-    {
-      key: 'free',
-      name: 'Free',
-      tier: 0,
-      priceMonth: '0',
-      priceYear: '0',
-      limits: { employees: 10, stores: 1, devices: 2, storage_gb: 1, ai_calls: 0 },
-      entitlements: { messaging: true },
-    },
-    {
-      key: 'starter',
-      name: 'Starter',
-      tier: 1,
-      priceMonth: '29',
-      priceYear: '290',
-      limits: { employees: 50, stores: 3, devices: 10, storage_gb: 10, ai_calls: 0 },
-      entitlements: { messaging: true, 'leave.advanced': true, 'employee.advanced': true },
-    },
-    {
-      key: 'growth',
-      name: 'Growth',
-      tier: 2,
-      priceMonth: '79',
-      priceYear: '790',
-      limits: { employees: 200, stores: 10, devices: 50, storage_gb: 50, ai_calls: 500 },
-      entitlements: {
-        messaging: true,
-        'leave.advanced': true,
-        'employee.advanced': true,
-        'attendance.advanced': true,
-        'scheduling.suggestions': true,
-        analytics: true,
-        recruiting: true,
-      },
-    },
-    {
-      key: 'business',
-      name: 'Business',
-      tier: 3,
-      priceMonth: '199',
-      priceYear: '1990',
-      limits: { employees: -1, stores: -1, devices: -1, storage_gb: 500, ai_calls: 5000 },
-      entitlements: {
-        messaging: true,
-        'leave.advanced': true,
-        'employee.advanced': true,
-        'attendance.advanced': true,
-        'scheduling.suggestions': true,
-        analytics: true,
-        recruiting: true,
-        'store.finances': true,
-        'permissions.overrides': true,
-        'group.policies': true,
-      },
-    },
-  ];
+  // PLAN_DEFS is the canonical default catalogue (shared with the Pricing module).
   const planIdByKey = new Map<string, string>();
   for (const p of PLAN_DEFS) {
     const [row] = await db
@@ -353,29 +298,45 @@ async function run(ctx: SeedContext): Promise<void> {
         priceYear: p.priceYear,
         limitsJson: p.limits,
         entitlementsJson: p.entitlements,
+        tagline: p.tagline,
+        description: p.description,
+        highlights: p.highlights,
+        popular: p.popular,
+        sortOrder: p.sortOrder,
       })
       .onConflictDoUpdate({
         target: schema.plans.key,
-        set: { limitsJson: p.limits, entitlementsJson: p.entitlements, tier: p.tier },
+        set: {
+          limitsJson: p.limits,
+          entitlementsJson: p.entitlements,
+          tier: p.tier,
+          priceMonth: p.priceMonth,
+          priceYear: p.priceYear,
+          tagline: p.tagline,
+          description: p.description,
+          highlights: p.highlights,
+          popular: p.popular,
+          sortOrder: p.sortOrder,
+        },
       })
       .returning();
     planIdByKey.set(p.key, row.id);
   }
-  // Put the demo company on a trialing Growth subscription so usage meters + the
+  // Put the demo company on a trialing Pro subscription so usage meters + the
   // billing screen have something real to show.
   const trialEnds = new Date(Date.now() + 14 * 86_400_000);
   await db
     .insert(schema.subscriptions)
     .values({
       companyId,
-      planId: planIdByKey.get('growth')!,
+      planId: planIdByKey.get('pro')!,
       status: 'trialing',
       interval: 'month',
       trialEndsAt: trialEnds,
     })
     .onConflictDoUpdate({
       target: schema.subscriptions.companyId,
-      set: { planId: planIdByKey.get('growth')!, status: 'trialing' },
+      set: { planId: planIdByKey.get('pro')!, status: 'trialing' },
     });
 
   log('→ recruiting…');

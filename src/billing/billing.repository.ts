@@ -4,6 +4,7 @@ import { DatabaseService } from '../database/database.service';
 import {
   employees,
   invoices,
+  memberships,
   plans,
   stores,
   subscriptions,
@@ -114,6 +115,17 @@ export class BillingRepository {
     return this.db.withTenant(companyId, async (tx) => {
       const rows = await tx.query.stores.findMany({
         where: eq(stores.companyId, companyId),
+        columns: { id: true },
+      });
+      return rows.length;
+    });
+  }
+
+  /** Active memberships = the billable "active users" for plan-limit purposes. */
+  async countActiveMemberships(companyId: string): Promise<number> {
+    return this.db.withTenant(companyId, async (tx) => {
+      const rows = await tx.query.memberships.findMany({
+        where: and(eq(memberships.companyId, companyId), eq(memberships.status, 'active')),
         columns: { id: true },
       });
       return rows.length;

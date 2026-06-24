@@ -11,6 +11,7 @@ export const companySettingsSchema = z.object({
 export const updateCompanySchema = createCompanySchema
   .pick({
     name: true,
+    category: true,
     country: true,
     currency: true,
     timezone: true,

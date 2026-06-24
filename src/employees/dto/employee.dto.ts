@@ -5,6 +5,7 @@ import {
   CREDENTIAL_STATUSES,
   EMPLOYEE_STATUSES,
   EMPLOYEE_STORE_RELATIONS,
+  MEMBERSHIP_ROLES,
 } from '../../database/schema/enums';
 
 const isoDate = z
@@ -54,6 +55,13 @@ export const createEmployeeSchema = z.object({
   locale: z.string().max(10).optional(),
   timezone: z.string().max(64).optional(),
   secondaryStores: z.array(storeLink).optional(),
+  // ── platform login (optional) ─────────────────────────────────────────────
+  /** When set, provision a portal login + a PENDING company membership of this
+   * role and raise an activation request (HR/admin must approve). The creator
+   * may only assign a role strictly BELOW their own (enforced in the service). */
+  membershipRole: z.enum(MEMBERSHIP_ROLES).optional(),
+  /** Email for the provisioned login (defaults to `email` when omitted). */
+  accountEmail: z.email().max(160).optional(),
 });
 export class CreateEmployeeDto extends createZodDto(createEmployeeSchema) {}
 
@@ -80,6 +88,7 @@ export const upsertStoreLinkSchema = storeLink.extend({ active: z.boolean().opti
 export class UpsertStoreLinkDto extends createZodDto(upsertStoreLinkSchema) {}
 
 export const createContractSchema = z.object({
+  title: z.string().max(120).optional(),
   type: z.enum(CONTRACT_TYPES).default('full_time'),
   startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD'),
   endDate: isoDate,
@@ -89,6 +98,37 @@ export const createContractSchema = z.object({
   docId: z.uuid().optional(),
 });
 export class CreateContractDto extends createZodDto(createContractSchema) {}
+
+/** Extend a contract — push (or clear) its end date. */
+export const extendContractSchema = z.object({
+  endDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
+    .nullable(),
+});
+export class ExtendContractDto extends createZodDto(extendContractSchema) {}
+
+/** Cancel a contract — keeps the row (cancelled) until permanently deleted. */
+export const cancelContractSchema = z.object({
+  reason: z.string().max(240).optional(),
+});
+export class CancelContractDto extends createZodDto(cancelContractSchema) {}
+
+// ── activation requests ─────────────────────────────────────────────────────
+export const listActivationRequestsSchema = z.object({
+  status: z.enum(['pending', 'approved', 'rejected']).optional(),
+});
+export class ListActivationRequestsDto extends createZodDto(listActivationRequestsSchema) {}
+
+export const rejectActivationSchema = z.object({
+  reason: z.string().max(240).optional(),
+});
+export class RejectActivationDto extends createZodDto(rejectActivationSchema) {}
+
+export const approveActivationSchema = z.object({
+  redirectTo: z.url().optional(),
+});
+export class ApproveActivationDto extends createZodDto(approveActivationSchema) {}
 
 export const createQualificationSchema = z.object({
   name: z.string().min(1).max(120),

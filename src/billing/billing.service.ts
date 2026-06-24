@@ -51,6 +51,14 @@ export class BillingService {
     return this.repo.listPlans();
   }
 
+  /** Active plans only, sorted for the public registration/pricing cards. */
+  async listPublicPlans() {
+    const all = await this.repo.listPlans();
+    return all
+      .filter((p) => p.isActive)
+      .sort((a, b) => a.sortOrder - b.sortOrder || a.tier - b.tier);
+  }
+
   async getSubscription(companyId: string) {
     return (await this.repo.getSubscription(companyId)) ?? null;
   }
@@ -99,6 +107,24 @@ export class BillingService {
       throw new ForbiddenException({
         code: 'PLAN_LIMIT',
         message: `Plan limit reached for ${metric} (${used}/${limit}). Upgrade to add more.`,
+      });
+    }
+  }
+
+  /**
+   * Plan cap for ACTIVE USERS (active memberships). The `employees` entitlement
+   * doubles as the seat cap; only active memberships count (a pending/inactive
+   * member doesn't consume a seat until approved). Gate at activation time.
+   */
+  async assertActiveUserLimit(companyId: string, delta = 1): Promise<void> {
+    const limits: Limits = await this.entitlements.getLimits(companyId);
+    const limit = limits.employees ?? -1;
+    if (limit < 0) return;
+    const used = await this.repo.countActiveMemberships(companyId);
+    if (used + delta > limit) {
+      throw new ForbiddenException({
+        code: 'PLAN_LIMIT',
+        message: `Plan seat limit reached (${used}/${limit} active users). Upgrade to activate more.`,
       });
     }
   }

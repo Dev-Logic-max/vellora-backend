@@ -68,6 +68,7 @@ export class CompaniesService {
           timezone: dto.timezone ?? countryDefaults.timezone,
           groupId: dto.groupId ?? null,
           ownerUserId: ownerId,
+          ...(dto.category ? { category: dto.category } : {}),
           ...(dto.registrationNumber ? { registrationNumber: dto.registrationNumber } : {}),
           ...(dto.companyEmail ? { companyEmail: dto.companyEmail } : {}),
           ...(dto.phone ? { phone: dto.phone } : {}),
@@ -227,6 +228,7 @@ export class CompaniesService {
     }
     const patch = {
       ...(dto.name !== undefined ? { name: dto.name } : {}),
+      ...(dto.category !== undefined ? { category: dto.category } : {}),
       ...(dto.country !== undefined ? { country: dto.country } : {}),
       ...(dto.currency !== undefined ? { currency: dto.currency } : {}),
       ...(dto.timezone !== undefined ? { timezone: dto.timezone } : {}),

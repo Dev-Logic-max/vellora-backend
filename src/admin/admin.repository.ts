@@ -5,6 +5,7 @@ import {
   companies,
   entitlementOverrides,
   featureFlags,
+  plans,
   platformAuditLog,
   subscriptions,
   type Company,
@@ -61,7 +62,25 @@ export class AdminRepository {
   }
 
   listPlans() {
-    return this.db.db.query.plans.findMany();
+    return this.db.db.query.plans.findMany({ orderBy: (p, { asc }) => asc(p.sortOrder) });
+  }
+
+  getPlan(id: string) {
+    return this.db.db.query.plans.findFirst({ where: eq(plans.id, id) });
+  }
+
+  async updatePlan(id: string, patch: Partial<typeof plans.$inferInsert>) {
+    const [row] = await this.db.db
+      .update(plans)
+      .set({ ...patch, updatedAt: new Date() })
+      .where(eq(plans.id, id))
+      .returning();
+    return row;
+  }
+
+  async createPlan(values: typeof plans.$inferInsert) {
+    const [row] = await this.db.db.insert(plans).values(values).returning();
+    return row;
   }
 
   // ── entitlement overrides ────────────────────────────────────────────────────

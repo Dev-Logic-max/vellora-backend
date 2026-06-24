@@ -1,5 +1,5 @@
 import { Injectable } from '@nestjs/common';
-import { and, asc, count, desc, eq, ilike, inArray, or, type SQL } from 'drizzle-orm';
+import { and, asc, count, desc, eq, ilike, inArray, isNull, or, type SQL } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import {
   contracts,
@@ -281,12 +281,25 @@ export class EmployeesRepository {
     });
   }
 
-  // ── sub-resources ───────────────────────────────────────────────────────
+  // ── contracts (managed lifecycle) ─────────────────────────────────────────
+  /** Non-deleted contracts (active + cancelled), newest first. */
   listContracts(companyId: string, employeeId: string): Promise<Contract[]> {
     return this.db.withTenant(companyId, (tx) =>
       tx.query.contracts.findMany({
-        where: eq(contracts.employeeId, employeeId),
+        where: and(eq(contracts.employeeId, employeeId), isNull(contracts.deletedAt)),
         orderBy: desc(contracts.startDate),
+      }),
+    );
+  }
+
+  findContract(companyId: string, employeeId: string, contractId: string) {
+    return this.db.withTenant(companyId, (tx) =>
+      tx.query.contracts.findFirst({
+        where: and(
+          eq(contracts.id, contractId),
+          eq(contracts.employeeId, employeeId),
+          isNull(contracts.deletedAt),
+        ),
       }),
     );
   }
@@ -295,6 +308,28 @@ export class EmployeesRepository {
     return this.db.withTenant(companyId, async (tx) => {
       const [row] = await tx.insert(contracts).values(values).returning();
       return row;
+    });
+  }
+
+  updateContract(
+    companyId: string,
+    contractId: string,
+    values: Partial<NewContract>,
+  ): Promise<Contract> {
+    return this.db.withTenant(companyId, async (tx) => {
+      const [row] = await tx
+        .update(contracts)
+        .set(values)
+        .where(eq(contracts.id, contractId))
+        .returning();
+      return row;
+    });
+  }
+
+  /** Soft-delete a contract (permanent removal from the user's perspective). */
+  softDeleteContract(companyId: string, contractId: string): Promise<void> {
+    return this.db.withTenant(companyId, async (tx) => {
+      await tx.update(contracts).set({ deletedAt: new Date() }).where(eq(contracts.id, contractId));
     });
   }
 
