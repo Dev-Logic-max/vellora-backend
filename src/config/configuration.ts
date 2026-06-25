@@ -20,6 +20,8 @@ export interface AppConfig {
     jwtSecret?: string;
     /** Private Storage bucket for documents (signed URLs only). */
     docsBucket: string;
+    /** PUBLIC Storage bucket for profile images (company banner/logo, avatars). */
+    publicBucket: string;
   };
   cloudinary: {
     cloudName?: string;
@@ -77,6 +79,7 @@ export default (): AppConfig => {
       serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY,
       jwtSecret: process.env.SUPABASE_JWT_SECRET,
       docsBucket: process.env.SUPABASE_DOCS_BUCKET ?? 'documents',
+      publicBucket: process.env.SUPABASE_PUBLIC_BUCKET ?? 'public-assets',
     },
     cloudinary: {
       cloudName: process.env.CLOUDINARY_CLOUD_NAME,

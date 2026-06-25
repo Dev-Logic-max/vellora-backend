@@ -1,18 +1,31 @@
 import { Injectable } from '@nestjs/common';
-import { desc, eq } from 'drizzle-orm';
+import { and, count, desc, eq, inArray, sql } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
 import {
   companies,
+  employees,
   entitlementOverrides,
   featureFlags,
+  memberships,
   plans,
   platformAuditLog,
+  stores,
   subscriptions,
+  users,
   type Company,
   type EntitlementOverride,
   type FeatureFlag,
   type PlatformAuditEntry,
 } from '../database/schema';
+
+/** Per-company directory aggregates for the platform Tenants table. */
+export interface TenantAggregates {
+  storeCount: number;
+  employeeCount: number;
+  ownerName: string | null;
+  ownerAvatarUrl: string | null;
+  employeeAvatars: { name: string; avatarUrl: string | null }[];
+}
 
 /**
  * Platform-console data access. EVERYTHING here runs on the privileged
@@ -41,6 +54,70 @@ export class AdminRepository {
       columns: { id: true },
     });
     return rows.length;
+  }
+
+  /** Batched directory aggregates (stores, employees, owner, avatars) for many
+   * companies at once — drives the platform Tenants table. */
+  async tenantAggregates(ids: string[]): Promise<Map<string, TenantAggregates>> {
+    const out = new Map<string, TenantAggregates>();
+    if (ids.length === 0) return out;
+    const db = this.db.db;
+
+    const [storeRows, empRows, ownerRows, empSampleRows] = await Promise.all([
+      db
+        .select({ companyId: stores.companyId, value: count() })
+        .from(stores)
+        .where(inArray(stores.companyId, ids))
+        .groupBy(stores.companyId),
+      db
+        .select({ companyId: employees.companyId, value: count() })
+        .from(employees)
+        .where(inArray(employees.companyId, ids))
+        .groupBy(employees.companyId),
+      db
+        .select({
+          companyId: memberships.companyId,
+          name: sql<string | null>`max(${users.name})`,
+          avatarUrl: sql<string | null>`max(${users.avatarUrl})`,
+        })
+        .from(memberships)
+        .innerJoin(users, eq(users.id, memberships.userId))
+        .where(and(inArray(memberships.companyId, ids), eq(memberships.role, 'owner')))
+        .groupBy(memberships.companyId),
+      db
+        .select({
+          companyId: employees.companyId,
+          firstName: employees.firstName,
+          lastName: employees.lastName,
+          avatarUrl: employees.avatarUrl,
+        })
+        .from(employees)
+        .where(inArray(employees.companyId, ids))
+        .limit(2000),
+    ]);
+
+    const storeMap = new Map(storeRows.map((r) => [r.companyId, Number(r.value)]));
+    const empMap = new Map(empRows.map((r) => [r.companyId, Number(r.value)]));
+    const ownerMap = new Map(ownerRows.map((r) => [r.companyId, r]));
+    const avatarMap = new Map<string, { name: string; avatarUrl: string | null }[]>();
+    for (const r of empSampleRows) {
+      const list = avatarMap.get(r.companyId) ?? [];
+      if (list.length < 4) {
+        list.push({ name: `${r.firstName} ${r.lastName}`.trim(), avatarUrl: r.avatarUrl });
+        avatarMap.set(r.companyId, list);
+      }
+    }
+
+    for (const id of ids) {
+      out.set(id, {
+        storeCount: storeMap.get(id) ?? 0,
+        employeeCount: empMap.get(id) ?? 0,
+        ownerName: ownerMap.get(id)?.name ?? null,
+        ownerAvatarUrl: ownerMap.get(id)?.avatarUrl ?? null,
+        employeeAvatars: avatarMap.get(id) ?? [],
+      });
+    }
+    return out;
   }
 
   // ── subscriptions (plan assignment) ─────────────────────────────────────────

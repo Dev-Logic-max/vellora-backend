@@ -2,6 +2,8 @@ import { Body, Controller, Get, Param, ParseUUIDPipe, Post, Put, UseGuards } fro
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { PlatformGuard } from '../common/guards/platform.guard';
+import { PlatformRequestsService } from '../platform-requests/platform-requests.service';
+import { RespondRequestDto } from '../platform-requests/dto/platform-requests.dto';
 import { AdminService } from './admin.service';
 import {
   AdminPermissionsDto,
@@ -23,7 +25,10 @@ import {
 @Controller('admin')
 @UseGuards(PlatformGuard)
 export class AdminController {
-  constructor(private readonly admin: AdminService) {}
+  constructor(
+    private readonly admin: AdminService,
+    private readonly requests: PlatformRequestsService,
+  ) {}
 
   // ── tenants ─────────────────────────────────────────────────────────────────
   @Get('tenants')
@@ -129,5 +134,25 @@ export class AdminController {
   @Post('impersonate/stop')
   stopImpersonate(@CurrentUser('userId') actor: string, @Body() dto: ImpersonateDto) {
     return this.admin.stopImpersonation(actor, dto.companyId);
+  }
+
+  // ── platform requests (tenant → platform inbox) ──────────────────────────────
+  @Get('requests')
+  requestList() {
+    return this.requests.listAll();
+  }
+
+  @Post('requests/:id/respond')
+  respondRequest(
+    @CurrentUser('userId') actor: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Body() dto: RespondRequestDto,
+  ) {
+    return this.requests.respond(actor, id, dto);
+  }
+
+  @Post('requests/:id/approve-deletion')
+  approveDeletion(@CurrentUser('userId') actor: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.requests.approveDeletion(actor, id);
   }
 }

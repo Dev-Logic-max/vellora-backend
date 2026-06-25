@@ -103,4 +103,10 @@ export class StoresController {
   finances(@CompanyId() companyId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.storesService.finances(companyId, id);
   }
+
+  /** Store analytics (mock revenue/profit/visitors/peak hours — POS placeholder). */
+  @Get(':id/analytics')
+  analytics(@CompanyId() companyId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.storesService.analytics(companyId, id);
+  }
 }

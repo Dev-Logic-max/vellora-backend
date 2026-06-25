@@ -25,7 +25,10 @@ export interface CompanyWithRole extends Company {
   storeCount: number;
   employeeCount: number;
   ownerName: string | null;
+  ownerAvatarUrl: string | null;
   planName: string | null;
+  /** A small sample of employee avatars for the overlapping stack (up to 4). */
+  employeeAvatars: { name: string; avatarUrl: string | null }[];
 }
 
 /**
@@ -157,7 +160,7 @@ export class CompaniesService {
     if (ids.length === 0) return [];
 
     // Batched aggregates keyed by company id (one query each).
-    const [storeRows, empRows, ownerRows, planRows] = await Promise.all([
+    const [storeRows, empRows, ownerRows, planRows, empSampleRows] = await Promise.all([
       db
         .select({ companyId: stores.companyId, value: count() })
         .from(stores)
@@ -172,6 +175,7 @@ export class CompaniesService {
         .select({
           companyId: memberships.companyId,
           name: sql<string | null>`max(${users.name})`,
+          avatarUrl: sql<string | null>`max(${users.avatarUrl})`,
         })
         .from(memberships)
         .innerJoin(users, eq(users.id, memberships.userId))
@@ -182,20 +186,42 @@ export class CompaniesService {
         .from(subscriptions)
         .innerJoin(plans, eq(plans.id, subscriptions.planId))
         .where(inArray(subscriptions.companyId, ids)),
+      // A flat sample of employees per company (we cap to 4 each in JS below).
+      db
+        .select({
+          companyId: employees.companyId,
+          firstName: employees.firstName,
+          lastName: employees.lastName,
+          avatarUrl: employees.avatarUrl,
+        })
+        .from(employees)
+        .where(inArray(employees.companyId, ids))
+        .limit(2000),
     ]);
 
     const storeMap = new Map(storeRows.map((r) => [r.companyId, Number(r.value)]));
     const empMap = new Map(empRows.map((r) => [r.companyId, Number(r.value)]));
-    const ownerMap = new Map(ownerRows.map((r) => [r.companyId, r.name]));
+    const ownerMap = new Map(ownerRows.map((r) => [r.companyId, r]));
     const planMap = new Map(planRows.map((r) => [r.companyId, r.name]));
+
+    const avatarMap = new Map<string, { name: string; avatarUrl: string | null }[]>();
+    for (const r of empSampleRows) {
+      const list = avatarMap.get(r.companyId) ?? [];
+      if (list.length < 4) {
+        list.push({ name: `${r.firstName} ${r.lastName}`.trim(), avatarUrl: r.avatarUrl });
+        avatarMap.set(r.companyId, list);
+      }
+    }
 
     return rows.map((row) => ({
       ...row.company,
       role: row.role,
       storeCount: storeMap.get(row.company.id) ?? 0,
       employeeCount: empMap.get(row.company.id) ?? 0,
-      ownerName: ownerMap.get(row.company.id) ?? null,
+      ownerName: ownerMap.get(row.company.id)?.name ?? null,
+      ownerAvatarUrl: ownerMap.get(row.company.id)?.avatarUrl ?? null,
       planName: planMap.get(row.company.id) ?? null,
+      employeeAvatars: avatarMap.get(row.company.id) ?? [],
     }));
   }
 
@@ -208,7 +234,16 @@ export class CompaniesService {
     });
   }
 
-  async getById(companyId: string, userId: string): Promise<Company> {
+  async getById(companyId: string, userId: string, isPlatform = false): Promise<Company> {
+    // Platform operators may read any company (cross-tenant, privileged); ordinary
+    // users must be an active member (RLS-scoped read).
+    if (isPlatform) {
+      const company = await this.databaseService.db.query.companies.findFirst({
+        where: eq(companies.id, companyId),
+      });
+      if (!company) throw new NotFoundException('Company not found.');
+      return company;
+    }
     await this.assertMember(companyId, userId);
     return this.findCurrentScoped(companyId);
   }
@@ -242,6 +277,8 @@ export class CompaniesService {
       ...(dto.postalCode !== undefined ? { postalCode: dto.postalCode } : {}),
       ...(dto.headOfficeAddress !== undefined ? { headOfficeAddress: dto.headOfficeAddress } : {}),
       ...(dto.offices !== undefined ? { offices: dto.offices } : {}),
+      ...(dto.logoUrl !== undefined ? { logoUrl: dto.logoUrl } : {}),
+      ...(dto.bannerUrl !== undefined ? { bannerUrl: dto.bannerUrl } : {}),
       ...(settingsPatch ?? {}),
     };
     const updated = await this.databaseService.withTenant(companyId, async (tx) => {
@@ -277,7 +314,19 @@ export class CompaniesService {
     return updated;
   }
 
-  async usage(companyId: string, userId: string) {
+  async usage(companyId: string, userId: string, isPlatform = false) {
+    // Platform operators read usage cross-tenant (privileged, filtered by id).
+    if (isPlatform) {
+      const [storeCount] = await this.databaseService.db
+        .select({ value: count() })
+        .from(stores)
+        .where(eq(stores.companyId, companyId));
+      const [memberCount] = await this.databaseService.db
+        .select({ value: count() })
+        .from(memberships)
+        .where(eq(memberships.companyId, companyId));
+      return { stores: storeCount.value, members: memberCount.value };
+    }
     await this.assertMember(companyId, userId);
     return this.databaseService.withTenant(companyId, async (tx) => {
       const [storeCount] = await tx.select({ value: count() }).from(stores);

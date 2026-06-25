@@ -26,16 +26,25 @@ export class AdminService {
   // ── tenants ─────────────────────────────────────────────────────────────────
   async listTenants() {
     const companies = await this.repo.listCompanies();
+    const aggregates = await this.repo.tenantAggregates(companies.map((c) => c.id));
     return Promise.all(
-      companies.map(async (c) => ({
-        id: c.id,
-        name: c.name,
-        slug: c.slug,
-        status: c.status,
-        createdAt: c.createdAt,
-        employees: await this.repo.countEmployees(c.id),
-        subscription: await this.repo.getSubscription(c.id),
-      })),
+      companies.map(async (c) => {
+        const agg = aggregates.get(c.id);
+        return {
+          id: c.id,
+          name: c.name,
+          slug: c.slug,
+          status: c.status,
+          country: c.country,
+          createdAt: c.createdAt,
+          employees: agg?.employeeCount ?? 0,
+          stores: agg?.storeCount ?? 0,
+          ownerName: agg?.ownerName ?? null,
+          ownerAvatarUrl: agg?.ownerAvatarUrl ?? null,
+          employeeAvatars: agg?.employeeAvatars ?? [],
+          subscription: await this.repo.getSubscription(c.id),
+        };
+      }),
     );
   }
 
