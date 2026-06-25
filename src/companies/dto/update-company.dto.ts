@@ -25,6 +25,11 @@ export const updateCompanySchema = createCompanySchema
     offices: true,
   })
   .partial()
-  .extend({ settings: companySettingsSchema.optional() });
+  .extend({
+    settings: companySettingsSchema.optional(),
+    /** Profile imagery (public URLs from the media upload endpoint). */
+    logoUrl: z.url().nullish(),
+    bannerUrl: z.url().nullish(),
+  });
 
 export class UpdateCompanyDto extends createZodDto(updateCompanySchema) {}

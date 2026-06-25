@@ -1,6 +1,17 @@
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
 
+/** Per-store operational toggles (mirrors stores.settings jsonb). */
+export const storeSettingsSchema = z
+  .object({
+    posEnabled: z.boolean().optional(),
+    publicProfile: z.boolean().optional(),
+    peakAlerts: z.boolean().optional(),
+    currency: z.string().max(3).optional(),
+    monthlyTarget: z.coerce.number().min(0).optional(),
+  })
+  .partial();
+
 export const createStoreSchema = z.object({
   name: z.string().min(2).max(120),
   code: z.string().max(40).optional(),
@@ -14,6 +25,9 @@ export const createStoreSchema = z.object({
   capacity: z.coerce.number().int().min(0).optional(),
   headStore: z.boolean().optional(),
   managerUserId: z.uuid().optional(),
+  logoUrl: z.string().url().max(500).optional(),
+  bannerUrl: z.string().url().max(500).optional(),
+  settings: storeSettingsSchema.optional(),
 });
 export class CreateStoreDto extends createZodDto(createStoreSchema) {}
 

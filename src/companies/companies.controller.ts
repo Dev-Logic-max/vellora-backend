@@ -58,13 +58,21 @@ export class CompaniesController {
   }
 
   @Get(':id')
-  getById(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
-    return this.companiesService.getById(id, userId);
+  getById(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('platformRole') platformRole: string | null | undefined,
+  ) {
+    return this.companiesService.getById(id, userId, Boolean(platformRole));
   }
 
   @Get(':id/usage')
-  usage(@Param('id', ParseUUIDPipe) id: string, @CurrentUser('userId') userId: string) {
-    return this.companiesService.usage(id, userId);
+  usage(
+    @Param('id', ParseUUIDPipe) id: string,
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('platformRole') platformRole: string | null | undefined,
+  ) {
+    return this.companiesService.usage(id, userId, Boolean(platformRole));
   }
 
   @Patch(':id')

@@ -324,3 +324,35 @@ export const reportRunStatusEnum = pgEnum('report_run_status', REPORT_RUN_STATUS
 export const PLATFORM_ROLES = ['super_admin', 'platform_admin', 'operations'] as const;
 export type PlatformRole = (typeof PLATFORM_ROLES)[number];
 export const platformRoleEnum = pgEnum('platform_role', PLATFORM_ROLES);
+
+// ── Platform requests (tenant → platform inbox) ─────────────────────────────
+/** What a tenant is sending up to the platform. `company_deletion` is the
+ * type-to-confirm deletion request; the rest are general support channels.
+ * Stored as text (no enum-add migration friction). */
+export const PLATFORM_REQUEST_TYPES = [
+  'company_deletion',
+  'report',
+  'query',
+  'support',
+  'feature',
+  'billing',
+] as const;
+export type PlatformRequestType = (typeof PLATFORM_REQUEST_TYPES)[number];
+
+/** Triage priority of a request — drives the colored priority tag. */
+export const PLATFORM_REQUEST_PRIORITIES = ['low', 'medium', 'high', 'urgent'] as const;
+export type PlatformRequestPriority = (typeof PLATFORM_REQUEST_PRIORITIES)[number];
+
+/** Platform-side record status (what the operator sees). */
+export const PLATFORM_REQUEST_STATUSES = [
+  'received',
+  'in_review',
+  'replied',
+  'resolved',
+  'rejected',
+] as const;
+export type PlatformRequestStatus = (typeof PLATFORM_REQUEST_STATUSES)[number];
+
+/** User-side action status (what the requester sees about the platform's handling). */
+export const PLATFORM_REQUEST_ACTION_STATUSES = ['waiting', 'read', 'responded', 'closed'] as const;
+export type PlatformRequestActionStatus = (typeof PLATFORM_REQUEST_ACTION_STATUSES)[number];

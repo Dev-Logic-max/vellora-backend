@@ -20,21 +20,50 @@ export interface SignedUpload {
  * Degrades gracefully without SUPABASE_URL + service-role key: returns a local
  * dev stub URL so the API contract holds and the frontend flow is testable.
  */
+export interface PublicUpload extends SignedUpload {
+  /** The permanent public URL the image is reachable at after upload. */
+  publicUrl: string;
+}
+
 @Injectable()
 export class StorageService {
   private readonly logger = new Logger(StorageService.name);
   private readonly client?: SupabaseClient;
   private readonly bucket: string;
+  private readonly publicBucket: string;
 
   constructor(config: ConfigService<AppConfig, true>) {
     const url = config.get('supabase.url', { infer: true });
     const key = config.get('supabase.serviceRoleKey', { infer: true });
     this.bucket = config.get('supabase.docsBucket', { infer: true });
+    this.publicBucket = config.get('supabase.publicBucket', { infer: true });
     if (url && key) {
       this.client = createClient(url, key, { auth: { persistSession: false } });
     } else {
       this.logger.warn('Supabase storage not configured — using local dev stub URLs.');
     }
+  }
+
+  /**
+   * Signed upload to the PUBLIC bucket (company banner/logo, avatars). Unlike the
+   * docs bucket these are world-readable via a stable `publicUrl`, so we return
+   * that alongside the signed upload target. Degrades to a dev stub when storage
+   * isn't configured. `prefix` groups objects (e.g. "company/<id>").
+   */
+  async createPublicImageUpload(prefix: string, filename: string): Promise<PublicUpload> {
+    const storageKey = this.buildKey(prefix, filename);
+    if (!this.client) {
+      const stub = `/dev-storage/public/${encodeURIComponent(storageKey)}`;
+      return { url: stub, storageKey, publicUrl: stub };
+    }
+    const { data, error } = await this.client.storage
+      .from(this.publicBucket)
+      .createSignedUploadUrl(storageKey);
+    if (error || !data) {
+      throw new InternalServerErrorException(`Storage upload URL failed: ${error?.message}`);
+    }
+    const { data: pub } = this.client.storage.from(this.publicBucket).getPublicUrl(storageKey);
+    return { url: data.signedUrl, storageKey, token: data.token, publicUrl: pub.publicUrl };
   }
 
   get enabled(): boolean {

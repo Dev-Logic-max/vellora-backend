@@ -34,6 +34,10 @@ export const stores = pgTable(
     timezone: text('timezone').notNull().default('UTC'),
     capacity: integer('capacity').notNull().default(0),
     headStore: boolean('head_store').notNull().default(false),
+    logoUrl: text('logo_url'),
+    bannerUrl: text('banner_url'),
+    /** Per-store operational toggles (POS link, public profile, peak alerts, …). */
+    settings: jsonb('settings').notNull().default({}),
     openingHours: jsonb('opening_hours').notNull().default({}),
     managerUserId: uuid('manager_user_id').references(() => users.id, { onDelete: 'set null' }),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),

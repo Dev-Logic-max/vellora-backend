@@ -24,6 +24,7 @@ import { GroupsModule } from './groups/groups.module';
 import { HealthModule } from './health/health.module';
 import { InfraModule } from './infra/infra.module';
 import { LeaveModule } from './leave/leave.module';
+import { MediaModule } from './media/media.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
@@ -32,6 +33,7 @@ import { SchedulingModule } from './scheduling/scheduling.module';
 import { TransfersModule } from './transfers/transfers.module';
 import { PermissionsModule } from './permissions/permissions.module';
 import { PlatformDesignModule } from './platform-design/platform-design.module';
+import { PlatformRequestsModule } from './platform-requests/platform-requests.module';
 import { ReportsModule } from './reports/reports.module';
 import { SearchModule } from './search/search.module';
 import { StoresModule } from './stores/stores.module';
@@ -72,7 +74,9 @@ import { StoresModule } from './stores/stores.module';
     BillingModule,
     RecruitingModule,
     PlatformDesignModule,
+    PlatformRequestsModule,
     ReportsModule,
+    MediaModule,
     AdminModule,
   ],
   providers: [

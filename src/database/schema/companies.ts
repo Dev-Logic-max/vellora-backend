@@ -29,6 +29,8 @@ export const companies = pgTable('companies', {
   status: companyStatusEnum('status').notNull().default('active'),
   planId: uuid('plan_id'),
   logoUrl: text('logo_url'),
+  /** Wide hero/banner image for the company profile page (public URL). */
+  bannerUrl: text('banner_url'),
   /** Primary owner/chairman of the company (a platform user). */
   ownerUserId: uuid('owner_user_id'),
   /** Legal registration / company number. */
