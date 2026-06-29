@@ -1,0 +1,17 @@
+{
+  // Dedicated config for `ts-node` seed runs. TS 6.0 raises TS5011 when a single
+  // entry file is compiled and the common source dir isn't the project root, so
+  // we pin `rootDir` to ./src. Relax the unused-symbol checks that the strict
+  // build enforces — seeds aren't part of the shipped build.
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "rootDir": "./src",
+    "noUnusedLocals": false,
+    "noUnusedParameters": false,
+    "incremental": false,
+    "declaration": false,
+    "sourceMap": false
+  },
+  "include": ["src/**/*"],
+  "exclude": ["node_modules", "dist", "test"]
+}

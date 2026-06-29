@@ -4,7 +4,14 @@ import { eq } from 'drizzle-orm';
 import type { AppConfig } from '../config/configuration';
 import { DatabaseService } from '../database/database.service';
 import { defaultsForCountry } from '../companies/country-defaults';
-import { companies, memberships, plans, subscriptions, users } from '../database/schema';
+import {
+  companies,
+  memberships,
+  plans,
+  platformSignups,
+  subscriptions,
+  users,
+} from '../database/schema';
 import type { RegisterDto } from './dto/register.dto';
 
 export interface RegisterResult {
@@ -120,6 +127,57 @@ export class RegistrationService {
       ownerEmail: email,
       emailSent,
     };
+  }
+
+  /**
+   * Referral-gated user signup. The user supplies a company REGISTRATION ID
+   * (provided to them by the company). We validate it against a company, create
+   * the auth identity (verification email), and record an INDEPENDENT
+   * `platform_signups` row — NOT a company `users`/`employees` record. This keeps
+   * self-registered users separate and inert until a company links them.
+   */
+  async signup(dto: {
+    email: string;
+    password: string;
+    name: string;
+    registrationId: string;
+  }): Promise<{ email: string; companyName: string; emailSent: boolean }> {
+    const email = dto.email.trim().toLowerCase();
+    const code = dto.registrationId.trim().toUpperCase();
+
+    // 1) The registration id MUST match an existing company (the referral gate).
+    const company = await this.databaseService.db.query.companies.findFirst({
+      where: eq(companies.registrationId, code),
+      columns: { id: true, name: true },
+    });
+    if (!company) {
+      throw new BadRequestException(
+        'Invalid company registration ID. Ask your company for the correct code.',
+      );
+    }
+
+    // 2) Don't double-register the same email as a signup.
+    const existing = await this.databaseService.db.query.platformSignups.findFirst({
+      where: eq(platformSignups.email, email),
+      columns: { id: true },
+    });
+    if (existing) {
+      throw new ConflictException('This email has already requested to join. Check your inbox.');
+    }
+
+    // 3) Create the auth identity (sends the confirmation email).
+    const { supabaseUid, emailSent } = await this.signUpOwner(email, dto.password, dto.name);
+
+    // 4) Record the independent signup (inert; a company links it later).
+    await this.databaseService.db.insert(platformSignups).values({
+      email,
+      name: dto.name,
+      companyRegistrationId: code,
+      supabaseUid,
+      status: 'pending',
+    });
+
+    return { email, companyName: company.name, emailSent };
   }
 
   /**

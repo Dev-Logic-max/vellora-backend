@@ -8,6 +8,8 @@ export const MODULES = [
   'dashboard',
   'companies',
   'stores',
+  'offices',
+  'factories',
   'employees',
   'shifts',
   'attendance',
@@ -20,6 +22,8 @@ export const MODULES = [
   'settings',
   'billing',
   'recruiting',
+  'pos_products',
+  'pos_sales',
 ] as const;
 export type ModuleKey = (typeof MODULES)[number];
 
@@ -29,6 +33,8 @@ export const ACCESS = 'access';
 const MANAGER_MODULES: ModuleKey[] = [
   'dashboard',
   'stores',
+  'offices',
+  'factories',
   'employees',
   'shifts',
   'attendance',
@@ -38,6 +44,8 @@ const MANAGER_MODULES: ModuleKey[] = [
   'reports',
   'messaging',
   'notifications',
+  'pos_products',
+  'pos_sales',
 ];
 
 const EMPLOYEE_MODULES: ModuleKey[] = [

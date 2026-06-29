@@ -1,4 +1,4 @@
-import { Body, Controller, Post, UseGuards } from '@nestjs/common';
+import { Body, Controller, Delete, Post, UseGuards } from '@nestjs/common';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { createZodDto } from 'nestjs-zod';
 import { z } from 'zod';
@@ -9,9 +9,24 @@ import { StorageService } from '../infra/storage.service';
 const imageUploadSchema = z.object({
   filename: z.string().min(1).max(200),
   /** Where the image is used — groups objects under a readable prefix. */
-  kind: z.enum(['company-banner', 'company-logo', 'store-banner', 'store-logo', 'avatar']),
+  kind: z.enum([
+    'company-banner',
+    'company-logo',
+    'store-banner',
+    'store-logo',
+    'office-banner',
+    'office-logo',
+    'factory-banner',
+    'factory-logo',
+    'user-avatar',
+    'employee-avatar',
+    'avatar',
+  ]),
 });
 class ImageUploadDto extends createZodDto(imageUploadSchema) {}
+
+const imageDeleteSchema = z.object({ url: z.string().min(1).max(1000) });
+class ImageDeleteDto extends createZodDto(imageDeleteSchema) {}
 
 /**
  * Public-image uploads (company banner/logo, avatars). Tenant-scoped: a company
@@ -30,5 +45,12 @@ export class MediaController {
   uploadUrl(@CompanyId() companyId: string, @Body() dto: ImageUploadDto) {
     const prefix = `${dto.kind}/${companyId}`;
     return this.storage.createPublicImageUpload(prefix, dto.filename);
+  }
+
+  @Delete()
+  @ApiOperation({ summary: 'Delete a previously-uploaded public image by its URL' })
+  async remove(@Body() dto: ImageDeleteDto) {
+    await this.storage.deleteByPublicUrl(dto.url);
+    return { removed: true };
   }
 }

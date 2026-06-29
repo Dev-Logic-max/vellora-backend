@@ -23,6 +23,14 @@ export const deletionRequestSchema = z.object({
 });
 export class DeletionRequestDto extends createZodDto(deletionRequestSchema) {}
 
+/** Tenant requests deletion of one of their stores — type the exact store name. */
+export const storeDeletionRequestSchema = z.object({
+  storeId: z.uuid(),
+  confirmName: z.string().min(1),
+  reason: z.string().max(4000).optional(),
+});
+export class StoreDeletionRequestDto extends createZodDto(storeDeletionRequestSchema) {}
+
 /** Platform operator responds / updates status on a request. */
 export const respondRequestSchema = z.object({
   status: z.enum(PLATFORM_REQUEST_STATUSES).optional(),

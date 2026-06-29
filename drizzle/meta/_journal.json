@@ -176,6 +176,34 @@
       "when": 1782629622550,
       "tag": "0024_store_branding_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 25,
+      "version": "7",
+      "when": 1782716022550,
+      "tag": "0025_pos_products",
+      "breakpoints": true
+    },
+    {
+      "idx": 26,
+      "version": "7",
+      "when": 1782802422550,
+      "tag": "0026_store_activity_dates",
+      "breakpoints": true
+    },
+    {
+      "idx": 27,
+      "version": "7",
+      "when": 1782888822550,
+      "tag": "0027_offices_factories",
+      "breakpoints": true
+    },
+    {
+      "idx": 28,
+      "version": "7",
+      "when": 1782975222550,
+      "tag": "0028_user_model_roles",
+      "breakpoints": true
     }
   ]
 }

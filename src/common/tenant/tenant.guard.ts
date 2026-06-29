@@ -16,6 +16,15 @@ export class TenantGuard implements CanActivate {
       throw new ForbiddenException('Authentication is required to resolve a tenant.');
     }
 
+    // Platform operators (super_admin / platform_admin / operations) are
+    // authorized cross-tenant — they never get a "not associated with a company"
+    // 403. They normally carry an active company (the x-company-id they picked,
+    // adopted in AuthService) which scopes the query; without one, downstream
+    // tenant-scoped reads simply return nothing rather than erroring.
+    if (user.platformRole) {
+      return true;
+    }
+
     if (!user.companyId) {
       throw new ForbiddenException('Authenticated user is not associated with a company.');
     }

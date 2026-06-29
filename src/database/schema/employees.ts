@@ -46,6 +46,10 @@ export const employees = pgTable(
     phone: text('phone'),
     /** Work/company email — distinct from the personal `email` used for the portal login. */
     companyEmail: text('company_email'),
+    /** The person's JOB title (free text, e.g. "Barista"). The platform/company
+     * ROLE (admin/hr/area_manager/store_manager/employee) lives on `memberships`. */
+    jobTitle: text('job_title'),
+    /** @deprecated kept for back-compat; use `jobTitle`. Mirrors job title. */
     role: text('role'),
     department: text('department'),
     /** The user above this employee in the org (any role above Employee). Self-referential. */
@@ -102,7 +106,9 @@ export const employees = pgTable(
  * changes. One employee may have several; `isPrimary` marks the payroll account.
  */
 export const employeeBankAccounts = pgTable(
-  'employee_bank_accounts',
+  // SQL table renamed to user_* terminology; the Drizzle binding name is kept to
+  // minimize code churn across the (large) employees module.
+  'user_bank_accounts',
   {
     id: uuid('id').defaultRandom().primaryKey(),
     companyId: uuid('company_id')
@@ -290,7 +296,7 @@ export const medicals = pgTable(
 
 /** Self-service preferences: availability (per weekday), notification + UI prefs. One row per employee. */
 export const empPreferences = pgTable(
-  'emp_preferences',
+  'user_preferences',
   {
     id: uuid('id').defaultRandom().primaryKey(),
     companyId: uuid('company_id')

@@ -27,6 +27,13 @@ export class PermissionGuard implements CanActivate {
     if (!required) return true;
 
     const user = context.switchToHttp().getRequest<Request>().user;
+    // Platform operators (super_admin / platform_admin / operations) are
+    // authorized cross-tenant and bypass the per-company permission matrix
+    // entirely — they can read/act on every module in any company they're
+    // scoped to via x-company-id (adopted in AuthService).
+    if (user?.platformRole) {
+      return true;
+    }
     if (!user?.companyId || !user.role) {
       throw new ForbiddenException('No active company role for this request.');
     }

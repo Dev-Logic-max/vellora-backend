@@ -132,10 +132,13 @@ export class EmployeesService {
     const { secondaryStores, uniqueCode, companyEmail, membershipRole, accountEmail, ...rest } =
       dto;
     const code = uniqueCode ?? (await this.nextCode(companyId, dto.primaryStoreId));
+    // Keep `jobTitle` and the legacy `role` (job) column in sync.
+    const jobTitle = rest.jobTitle ?? rest.role;
     const values: NewEmployee = {
       companyId,
       uniqueCode: code,
       ...rest,
+      ...(jobTitle ? { jobTitle, role: jobTitle } : {}),
       ...(companyEmail ? { companyEmail } : {}),
     };
     const links = (secondaryStores ?? []).map((s) => ({

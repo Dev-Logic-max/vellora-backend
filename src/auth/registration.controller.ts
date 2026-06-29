@@ -2,7 +2,7 @@ import { Body, Controller, HttpCode, Post, UseGuards } from '@nestjs/common';
 import { ApiOperation, ApiTags } from '@nestjs/swagger';
 import { Public } from './public.decorator';
 import { RateLimit, RateLimitGuard } from '../common/guards/rate-limit.guard';
-import { RegisterDto } from './dto/register.dto';
+import { RegisterDto, SignupDto } from './dto/register.dto';
 import { RegistrationService } from './registration.service';
 
 /**
@@ -25,5 +25,13 @@ export class RegistrationController {
   })
   register(@Body() dto: RegisterDto) {
     return this.registration.register(dto);
+  }
+
+  @Post('signup')
+  @HttpCode(201)
+  @RateLimit({ limit: 8, windowMs: 60_000 })
+  @ApiOperation({ summary: 'Referral-gated user signup (requires a company registration id)' })
+  signup(@Body() dto: SignupDto) {
+    return this.registration.signup(dto);
   }
 }

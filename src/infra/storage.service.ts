@@ -116,4 +116,38 @@ export class StorageService {
     const { error } = await this.client.storage.from(this.bucket).remove(storageKeys);
     if (error) this.logger.warn(`Storage remove failed: ${error.message}`);
   }
+
+  /** Remove objects from the PUBLIC bucket (avatars/logos/banners). */
+  async removePublic(storageKeys: string[]): Promise<void> {
+    if (!this.client || storageKeys.length === 0) return;
+    const { error } = await this.client.storage.from(this.publicBucket).remove(storageKeys);
+    if (error) this.logger.warn(`Public storage remove failed: ${error.message}`);
+  }
+
+  /**
+   * Derives a public-bucket object key from its public URL. Supabase public URLs
+   * look like `…/storage/v1/object/public/<bucket>/<key>`; returns null for any
+   * non-bucket URL (dev stubs, external avatars) so callers can skip cleanup.
+   */
+  publicKeyFromUrl(url?: string | null): string | null {
+    if (!url) return null;
+    const marker = `/object/public/${this.publicBucket}/`;
+    const idx = url.indexOf(marker);
+    if (idx === -1) return null;
+    try {
+      return decodeURIComponent(url.slice(idx + marker.length).split('?')[0]);
+    } catch {
+      return null;
+    }
+  }
+
+  /**
+   * Best-effort delete of a previously-uploaded public image by its URL — used to
+   * avoid orphaned objects when an image is replaced or removed. No-ops for
+   * non-bucket URLs.
+   */
+  async deleteByPublicUrl(url?: string | null): Promise<void> {
+    const key = this.publicKeyFromUrl(url);
+    if (key) await this.removePublic([key]);
+  }
 }

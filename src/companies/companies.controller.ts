@@ -33,10 +33,13 @@ export class CompaniesController {
     return this.companiesService.createWithOwner(dto, userId);
   }
 
-  /** Companies the caller belongs to (across tenants). */
+  /** Companies the caller belongs to — or ALL companies for platform operators. */
   @Get()
-  list(@CurrentUser('userId') userId: string) {
-    return this.companiesService.listForUser(userId);
+  list(
+    @CurrentUser('userId') userId: string,
+    @CurrentUser('platformRole') platformRole: string | null | undefined,
+  ) {
+    return this.companiesService.listForUser(userId, Boolean(platformRole));
   }
 
   @Get('current')

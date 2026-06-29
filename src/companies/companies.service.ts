@@ -20,7 +20,8 @@ import type { CreateCompanyDto, CustomPricing } from './dto/create-company.dto';
 import type { UpdateCompanyDto } from './dto/update-company.dto';
 
 export interface CompanyWithRole extends Company {
-  role: MembershipRole;
+  /** The caller's role in this company — null for platform operators (all companies). */
+  role: MembershipRole | null;
   /** Directory summary for the companies table (privileged aggregates). */
   storeCount: number;
   employeeCount: number;
@@ -80,6 +81,9 @@ export class CompaniesService {
           ...(dto.postalCode ? { postalCode: dto.postalCode } : {}),
           ...(dto.headOfficeAddress ? { headOfficeAddress: dto.headOfficeAddress } : {}),
           ...(dto.offices ? { offices: dto.offices } : {}),
+          ...(dto.workplaceTypes && dto.workplaceTypes.length
+            ? { workplaceTypes: dto.workplaceTypes }
+            : {}),
           ...(planId ? { planId } : {}),
         })
         .returning();
@@ -148,13 +152,20 @@ export class CompaniesService {
 
   /** Companies the user is an active member of (cross-tenant; privileged), each
    * enriched with directory aggregates (stores, employees, owner, plan). */
-  async listForUser(userId: string): Promise<CompanyWithRole[]> {
+  async listForUser(userId: string, isPlatform = false): Promise<CompanyWithRole[]> {
     const db = this.databaseService.db;
-    const rows = await db
-      .select({ company: companies, role: memberships.role })
-      .from(memberships)
-      .innerJoin(companies, eq(companies.id, memberships.companyId))
-      .where(and(eq(memberships.userId, userId), eq(memberships.status, 'active')));
+    // Platform operators (super_admin / platform_admin / operations) see EVERY
+    // company; regular users see only the companies they're an active member of.
+    const rows: { company: Company; role: MembershipRole | null }[] = isPlatform
+      ? (await db.select({ company: companies }).from(companies)).map((r) => ({
+          company: r.company,
+          role: null,
+        }))
+      : await db
+          .select({ company: companies, role: memberships.role })
+          .from(memberships)
+          .innerJoin(companies, eq(companies.id, memberships.companyId))
+          .where(and(eq(memberships.userId, userId), eq(memberships.status, 'active')));
 
     const ids = rows.map((r) => r.company.id);
     if (ids.length === 0) return [];
@@ -277,6 +288,7 @@ export class CompaniesService {
       ...(dto.postalCode !== undefined ? { postalCode: dto.postalCode } : {}),
       ...(dto.headOfficeAddress !== undefined ? { headOfficeAddress: dto.headOfficeAddress } : {}),
       ...(dto.offices !== undefined ? { offices: dto.offices } : {}),
+      ...(dto.workplaceTypes !== undefined ? { workplaceTypes: dto.workplaceTypes } : {}),
       ...(dto.logoUrl !== undefined ? { logoUrl: dto.logoUrl } : {}),
       ...(dto.bannerUrl !== undefined ? { bannerUrl: dto.bannerUrl } : {}),
       ...(settingsPatch ?? {}),

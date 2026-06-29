@@ -53,6 +53,15 @@ export const companies = pgTable('companies', {
   offices: jsonb('offices')
     .notNull()
     .default(sql`'[]'::jsonb`),
+  /** Which workplace kinds the company operates: 'stores' | 'offices' | 'factories'.
+   * Drives the sidebar nav + the workplace selector on company create/edit. */
+  workplaceTypes: text('workplace_types')
+    .array()
+    .notNull()
+    .default(sql`'{stores}'::text[]`),
+  /** The referral/registration code a user must supply at signup to join this
+   * company (gates self-registration so only invited users can register). */
+  registrationId: text('registration_id'),
   /** Per-company toggles (e.g. attendance device-fingerprint enforcement). */
   settings: jsonb('settings')
     .notNull()

@@ -155,4 +155,12 @@ export class AdminController {
   approveDeletion(@CurrentUser('userId') actor: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.requests.approveDeletion(actor, id);
   }
+
+  @Post('requests/:id/approve-store-deletion')
+  approveStoreDeletion(
+    @CurrentUser('userId') actor: string,
+    @Param('id', ParseUUIDPipe) id: string,
+  ) {
+    return this.requests.approveStoreDeletion(actor, id);
+  }
 }

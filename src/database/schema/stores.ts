@@ -64,15 +64,29 @@ export const storeActivities = pgTable(
       .notNull()
       .references(() => stores.id, { onDelete: 'cascade' }),
     name: text('name').notNull(),
+    /** Catalog key of the activity type (e.g. 'window_display'); free-form fallback to name. */
+    type: text('type'),
     color: text('color').notNull().default('#4f46e5'),
+    /** Lucide icon name or emoji shown on the activity block; null = auto from type. */
+    icon: text('icon'),
+    description: text('description'),
     defaultStaffing: integer('default_staffing').notNull().default(0),
+    /** Recurring weekday pattern (legacy). New activities use the date range below. */
     activeDays: text('active_days')
       .array()
       .notNull()
       .default(sql`'{}'::text[]`),
+    /** Date-specific window the activity applies to (store-local dates, yyyy-MM-dd). */
+    startDate: text('start_date'),
+    endDate: text('end_date'),
+    /** The month the activity is mapped to (yyyy-MM) — one activity per store per month. */
+    month: text('month'),
     createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   },
-  (table) => [index('store_activities_store_id_idx').on(table.storeId)],
+  (table) => [
+    index('store_activities_store_id_idx').on(table.storeId),
+    index('store_activities_month_idx').on(table.storeId, table.month),
+  ],
 );
 
 export const storesRelations = relations(stores, ({ one, many }) => ({

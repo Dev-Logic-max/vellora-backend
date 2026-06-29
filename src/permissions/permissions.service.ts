@@ -47,6 +47,22 @@ export class PermissionsService {
     return override ? override.allowed : defaultAllows(role, resource);
   }
 
+  /**
+   * Module keys the given role may access (override ∨ default) for one company.
+   * Powers the sidebar visibility gate — readable by any authenticated member
+   * (no settings permission required, it only reveals the caller's own role).
+   */
+  async allowedModulesFor(companyId: string, role: MembershipRole): Promise<string[]> {
+    const overrides = await this.databaseService.withTenant(companyId, (tx) =>
+      tx.query.permissions.findMany({ where: eq(permissions.role, role) }),
+    );
+    const overrideMap = new Map(overrides.map((o) => [`${o.resource}:${o.action}`, o.allowed]));
+    return MODULES.filter((moduleKey) => {
+      const key = `${moduleKey}:${ACCESS}`;
+      return overrideMap.has(key) ? overrideMap.get(key)! : defaultAllows(role, moduleKey);
+    });
+  }
+
   /** The full roles × modules matrix, merging defaults with stored overrides. */
   async getMatrix(companyId: string): Promise<MatrixCell[]> {
     const overrides = await this.databaseService.withTenant(companyId, (tx) =>

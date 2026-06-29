@@ -25,6 +25,11 @@ export class RolesGuard implements CanActivate {
     }
 
     const request = context.switchToHttp().getRequest<Request>();
+    // Platform operators bypass company role gates — they act with full
+    // owner-equivalent authority in whichever company they're scoped to.
+    if (request.user?.platformRole) {
+      return true;
+    }
     const role = request.user?.role;
     if (!role || !required.includes(role)) {
       throw new ForbiddenException('Your role does not permit this action.');

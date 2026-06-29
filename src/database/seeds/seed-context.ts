@@ -59,15 +59,21 @@ export function createSeedContext(env: SeedEnv): { ctx: SeedContext; close: () =
       return body.id;
     }
 
-    // Already exists → look it up by email.
-    const list = await fetch(`${base}/admin/users?email=${encodeURIComponent(email)}`, { headers });
-    if (!list.ok) {
-      throw new Error(`Could not create or find auth user ${email}: ${await create.text()}`);
+    // Already exists → look it up. GoTrue's `?email=` filter is unreliable across
+    // versions, so page through the admin user list and match by email.
+    const target = email.toLowerCase();
+    for (let page = 1; page <= 50; page++) {
+      const list = await fetch(`${base}/admin/users?page=${page}&per_page=200`, { headers });
+      if (!list.ok) {
+        throw new Error(`Could not create or find auth user ${email}: ${await create.text()}`);
+      }
+      const found = (await list.json()) as { users?: { id: string; email: string }[] };
+      const users = found.users ?? [];
+      const match = users.find((u) => u.email?.toLowerCase() === target);
+      if (match) return match.id;
+      if (users.length < 200) break; // last page
     }
-    const found = (await list.json()) as { users?: { id: string; email: string }[] };
-    const match = found.users?.find((u) => u.email?.toLowerCase() === email.toLowerCase());
-    if (!match) throw new Error(`Auth user ${email} not found after conflict.`);
-    return match.id;
+    throw new Error(`Auth user ${email} not found after conflict.`);
   };
 
   return {

@@ -4,7 +4,11 @@ import { CompanyId } from '../common/decorators/company-id.decorator';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { TenantGuard } from '../common/tenant/tenant.guard';
 import { PlatformRequestsService } from './platform-requests.service';
-import { CreateRequestDto, DeletionRequestDto } from './dto/platform-requests.dto';
+import {
+  CreateRequestDto,
+  DeletionRequestDto,
+  StoreDeletionRequestDto,
+} from './dto/platform-requests.dto';
 
 /**
  * Tenant-facing request endpoints (the company raising a request to the platform).
@@ -39,5 +43,14 @@ export class PlatformRequestsController {
     @Body() dto: DeletionRequestDto,
   ) {
     return this.requests.requestDeletion(companyId, userId, dto);
+  }
+
+  @Post('store-deletion')
+  requestStoreDeletion(
+    @CompanyId() companyId: string,
+    @CurrentUser('userId') userId: string,
+    @Body() dto: StoreDeletionRequestDto,
+  ) {
+    return this.requests.requestStoreDeletion(companyId, userId, dto);
   }
 }

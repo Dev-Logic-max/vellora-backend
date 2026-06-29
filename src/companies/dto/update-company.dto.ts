@@ -23,6 +23,7 @@ export const updateCompanySchema = createCompanySchema
     postalCode: true,
     headOfficeAddress: true,
     offices: true,
+    workplaceTypes: true,
   })
   .partial()
   .extend({

@@ -25,8 +25,8 @@
     "db:migrate": "drizzle-kit migrate",
     "db:push": "drizzle-kit push",
     "db:studio": "drizzle-kit studio",
-    "db:seed": "ts-node -T src/database/seeds/run.ts",
-    "db:seed:list": "ts-node -T src/database/seeds/run.ts --list"
+    "db:seed": "ts-node -T -P tsconfig.seed.json src/database/seeds/run.ts",
+    "db:seed:list": "ts-node -T -P tsconfig.seed.json src/database/seeds/run.ts --list"
   },
   "dependencies": {
     "@nestjs/common": "^11.1.6",

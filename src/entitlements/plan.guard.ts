@@ -23,6 +23,11 @@ export class PlanGuard implements CanActivate {
     if (!feature) return true;
 
     const user = context.switchToHttp().getRequest<Request>().user;
+    // Platform operators bypass plan entitlement gates — they can use every
+    // feature in any company regardless of that company's plan.
+    if (user?.platformRole) {
+      return true;
+    }
     if (!user?.companyId) {
       throw new ForbiddenException('No active company for this request.');
     }

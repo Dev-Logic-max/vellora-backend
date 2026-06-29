@@ -4,7 +4,8 @@ import { and, eq } from 'drizzle-orm';
 import { createRemoteJWKSet, decodeJwt, jwtVerify, type JWTVerifyGetKey } from 'jose';
 import type { AppConfig } from '../config/configuration';
 import { DatabaseService } from '../database/database.service';
-import { companies, memberships, users, type User } from '../database/schema';
+import { companies, memberships, platformAdmins, users, type User } from '../database/schema';
+import type { PlatformRole } from '../database/schema/enums';
 import type { AuthenticatedUser, MembershipContext } from '../common/types/authenticated-user';
 
 /**
@@ -53,7 +54,39 @@ export class AuthService {
     // required), so promote any company this owner registered from pending→active.
     await this.promotePendingCompanies(user.id);
     const ctx = await this.loadMemberships(user.id);
-    const active = this.pickActiveMembership(ctx, requestedCompanyId);
+    let active = this.pickActiveMembership(ctx, requestedCompanyId);
+    // Platform role: the canonical source is the separate `platform_admins`
+    // table (the 3 operators); fall back to the legacy `users.platformRole`.
+    const platformRole = await this.resolvePlatformRole(supabaseUid, user.platformRole);
+
+    // Platform operators (super_admin / platform_admin / operations) aren't
+    // company members, but are authorized cross-tenant. They ALWAYS get an active
+    // company context so nothing 403s: the company they picked (x-company-id), or
+    // a default (Vellora, else the first company). This adopts that tenant with
+    // company-wide scope so every tenant-scoped read/edit/delete resolves.
+    if (!active && platformRole) {
+      const company = requestedCompanyId
+        ? await this.databaseService.db.query.companies.findFirst({
+            where: eq(companies.id, requestedCompanyId),
+            columns: { id: true },
+          })
+        : ((await this.databaseService.db.query.companies.findFirst({
+            where: eq(companies.name, 'Vellora'),
+            columns: { id: true },
+          })) ??
+          (await this.databaseService.db.query.companies.findFirst({
+            columns: { id: true },
+            orderBy: (c, { asc }) => asc(c.createdAt),
+          })));
+      if (company) {
+        active = {
+          companyId: company.id,
+          role: 'owner',
+          scopeType: 'company',
+          scopeIds: [],
+        } as MembershipContext;
+      }
+    }
 
     return {
       supabaseUid: user.supabaseUid,
@@ -65,8 +98,20 @@ export class AuthService {
       role: active?.role,
       scopeType: active?.scopeType,
       scopeIds: active?.scopeIds,
-      platformRole: user.platformRole,
+      platformRole,
     };
+  }
+
+  /** Resolve the platform operator role from `platform_admins` (canonical),
+   * else the legacy `users.platformRole`. */
+  private async resolvePlatformRole(
+    supabaseUid: string,
+    legacy?: PlatformRole | null,
+  ): Promise<PlatformRole | null | undefined> {
+    const admin = await this.databaseService.db.query.platformAdmins.findFirst({
+      where: eq(platformAdmins.supabaseUid, supabaseUid),
+    });
+    return (admin?.platformRole as PlatformRole | undefined) ?? legacy;
   }
 
   private async verifyOrDecode(token: string): Promise<Record<string, unknown>> {

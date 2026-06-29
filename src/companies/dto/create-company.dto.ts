@@ -56,6 +56,8 @@ export const createCompanySchema = z.object({
   postalCode: z.string().max(20).optional(),
   headOfficeAddress: z.string().max(240).optional(),
   offices: z.array(officeSchema).optional(),
+  /** Workplace kinds the company operates: 'stores' | 'offices' | 'factories'. */
+  workplaceTypes: z.array(z.enum(['stores', 'offices', 'factories'])).optional(),
   /** Plan key chosen at creation (e.g. "free"/"growth"/"custom"). */
   planKey: z.string().max(40).optional(),
   /** Present (and persisted to the entitlement override + discounts) when planKey === "custom". */

@@ -26,7 +26,10 @@ export const createEmployeeSchema = z.object({
   email: z.email().max(160).optional(),
   phone: z.string().max(40).optional(),
   companyEmail: z.email().max(160).optional().or(z.literal('')),
+  /** @deprecated job title — use `jobTitle`. Kept for back-compat. */
   role: z.string().max(80).optional(),
+  /** The person's JOB title (free text). The platform ROLE is `membershipRole`. */
+  jobTitle: z.string().max(80).optional(),
   department: z.string().max(80).optional(),
   supervisorId: z.uuid().optional(),
   status: z.enum(EMPLOYEE_STATUSES).optional(),
@@ -50,6 +53,8 @@ export const createEmployeeSchema = z.object({
   address: z.string().max(240).optional(),
   /** Map of offered benefits, e.g. { first_aid: true, medical: true, ... }. */
   benefits: z.record(z.string(), z.boolean()).optional(),
+  /** Profile photo URL (public bucket); null to remove. */
+  avatarUrl: z.string().max(1000).nullable().optional(),
   primaryStoreId: z.uuid().optional(),
   uniqueCode: z.string().min(2).max(40).optional(),
   locale: z.string().max(10).optional(),

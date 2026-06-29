@@ -14,16 +14,18 @@
  * register it in SEEDS below.
  */
 import 'dotenv/config';
-import basicSeed from './basic.seed';
+import enterpriseSeed from './enterprise.seed';
+import platformSeed from './platform.seed';
 import resetSeed from './reset.seed';
 import { createSeedContext, type SeedModule } from './seed-context';
 
 const SEEDS: Record<string, SeedModule> = {
-  [basicSeed.name]: basicSeed,
+  [platformSeed.name]: platformSeed,
+  [enterpriseSeed.name]: enterpriseSeed,
   [resetSeed.name]: resetSeed,
 };
 
-const DEFAULT_SEED = 'basic';
+const DEFAULT_SEED = 'enterprise';
 
 function listSeeds(): void {
   console.log('Available seeds:');

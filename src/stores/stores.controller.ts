@@ -18,7 +18,15 @@ import { RolesGuard } from '../common/guards/roles.guard';
 import { TenantGuard } from '../common/tenant/tenant.guard';
 import { PermissionGuard } from '../permissions/permission.guard';
 import { PlanGuard } from '../entitlements/plan.guard';
-import { CreateActivityDto, CreateStoreDto, UpdateHoursDto, UpdateStoreDto } from './dto/store.dto';
+import {
+  ActivityQueryDto,
+  CreateActivityDto,
+  CreateStoreDto,
+  UpdateActivityDto,
+  UpdateHoursDto,
+  UpdateStoreDto,
+} from './dto/store.dto';
+import { Query } from '@nestjs/common';
 import { StoresService } from './stores.service';
 
 @ApiTags('stores')
@@ -32,6 +40,12 @@ export class StoresController {
   @Get()
   list(@CompanyId() companyId: string) {
     return this.storesService.list(companyId);
+  }
+
+  /** Company-wide activity overlay for the scheduling calendar (store/month filters). */
+  @Get('activities/all')
+  allActivities(@CompanyId() companyId: string, @Query() query: ActivityQueryDto) {
+    return this.storesService.listCompanyActivities(companyId, query);
   }
 
   @Post()
@@ -96,6 +110,29 @@ export class StoresController {
     return this.storesService.createActivity(companyId, id, dto);
   }
 
+  @Patch(':id/activities/:activityId')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'hr', 'store_manager', 'area_manager')
+  updateActivity(
+    @CompanyId() companyId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('activityId', ParseUUIDPipe) activityId: string,
+    @Body() dto: UpdateActivityDto,
+  ) {
+    return this.storesService.updateActivity(companyId, id, activityId, dto);
+  }
+
+  @Post(':id/activities/:activityId/delete')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'hr', 'store_manager', 'area_manager')
+  deleteActivity(
+    @CompanyId() companyId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('activityId', ParseUUIDPipe) activityId: string,
+  ) {
+    return this.storesService.deleteActivity(companyId, id, activityId);
+  }
+
   /** Paid module — blocked unless the plan unlocks store finances. */
   @Get(':id/finances')
   @UseGuards(PlanGuard)
@@ -108,5 +145,17 @@ export class StoresController {
   @Get(':id/analytics')
   analytics(@CompanyId() companyId: string, @Param('id', ParseUUIDPipe) id: string) {
     return this.storesService.analytics(companyId, id);
+  }
+
+  /** Real shift coverage for this store this week. */
+  @Get(':id/shift-coverage')
+  shiftCoverage(@CompanyId() companyId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.storesService.shiftCoverage(companyId, id);
+  }
+
+  /** Sibling stores in the same company (head-store hierarchy). */
+  @Get(':id/siblings')
+  siblings(@CompanyId() companyId: string, @Param('id', ParseUUIDPipe) id: string) {
+    return this.storesService.siblings(companyId, id);
   }
 }

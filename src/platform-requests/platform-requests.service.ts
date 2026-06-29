@@ -7,13 +7,14 @@ import {
 } from '@nestjs/common';
 import { and, eq } from 'drizzle-orm';
 import { DatabaseService } from '../database/database.service';
-import { companies, memberships } from '../database/schema';
+import { companies, memberships, stores } from '../database/schema';
 import { NotificationsService } from '../notifications/notifications.service';
 import { PlatformRequestsRepository } from './platform-requests.repository';
 import type {
   CreateRequestDto,
   DeletionRequestDto,
   RespondRequestDto,
+  StoreDeletionRequestDto,
 } from './dto/platform-requests.dto';
 
 /**
@@ -81,9 +82,61 @@ export class PlatformRequestsService {
     });
   }
 
+  /**
+   * Owner/HR requests deletion of one of their stores. Type-to-confirm the store
+   * name; raises a high-priority Stores request carrying the store id in meta so
+   * a platform operator can approve + archive it.
+   */
+  async requestStoreDeletion(companyId: string, userId: string, dto: StoreDeletionRequestDto) {
+    const store = await this.db.db.query.stores.findFirst({
+      where: and(eq(stores.id, dto.storeId), eq(stores.companyId, companyId)),
+      columns: { name: true },
+    });
+    if (!store) throw new NotFoundException('Store not found.');
+    if (dto.confirmName.trim() !== store.name.trim()) {
+      throw new BadRequestException('The typed name does not match the store name.');
+    }
+    return this.repo.create(companyId, {
+      companyId,
+      type: 'support',
+      module: 'Stores',
+      priority: 'high',
+      subject: `Delete store "${store.name}"`,
+      message: dto.reason,
+      requestedBy: userId,
+      meta: { storeId: dto.storeId, kind: 'store_deletion', confirmName: dto.confirmName },
+    });
+  }
+
   // ── platform side ──────────────────────────────────────────────────────────────
   listAll() {
     return this.repo.listAll();
+  }
+
+  /**
+   * Approve + execute a store-deletion request (platform). Archives the store
+   * (status → 'archived', reversible) and resolves the request.
+   */
+  async approveStoreDeletion(actorUserId: string, id: string) {
+    const req = await this.repo.getById(id);
+    if (!req) throw new NotFoundException('Request not found.');
+    const meta = (req.meta ?? {}) as { storeId?: string; kind?: string };
+    if (meta.kind !== 'store_deletion' || !meta.storeId) {
+      throw new BadRequestException('This request is not a store-deletion request.');
+    }
+    await this.db.db
+      .update(stores)
+      .set({ status: 'archived' })
+      .where(and(eq(stores.id, meta.storeId), eq(stores.companyId, req.companyId)));
+    const updated = await this.repo.update(id, {
+      status: 'resolved',
+      actionStatus: 'closed',
+      handledBy: actorUserId,
+      resolvedAt: new Date(),
+      response: 'Store deletion approved and processed (archived).',
+    });
+    await this.notifyRequester(updated.companyId, updated.requestedBy, updated.subject, 'resolved');
+    return updated;
   }
 
   /** Operator responds / changes the record status; mirrors a user-facing action status. */

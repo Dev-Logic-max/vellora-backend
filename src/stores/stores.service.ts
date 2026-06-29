@@ -1,10 +1,11 @@
 import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
-import { and, eq, inArray, ne } from 'drizzle-orm';
+import { and, eq, gte, inArray, lt, ne } from 'drizzle-orm';
 import { BillingService } from '../billing/billing.service';
 import { TenantContextService } from '../common/tenant/tenant-context.service';
 import { DatabaseService } from '../database/database.service';
 import {
   employees,
+  shifts,
   storeActivities,
   stores,
   type Store,
@@ -114,17 +115,20 @@ export class StoresService {
     });
   }
 
-  /** Auto store code: 6 digits, retried against the company's existing codes. */
+  /** Auto store code: 3 letters + 3–4 digits (e.g. LDN-014), unique per company. */
   private async generateUniqueCode(companyId: string): Promise<string> {
     const existing = await this.databaseService.withTenant(companyId, (tx) =>
       tx.query.stores.findMany({ columns: { code: true } }),
     );
     const taken = new Set(existing.map((s) => s.code).filter(Boolean));
-    for (let i = 0; i < 30; i++) {
-      const code = String(Math.floor(100000 + Math.random() * 900000));
+    const LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ';
+    const rand = (set: string, n: number) =>
+      Array.from({ length: n }, () => set[Math.floor(Math.random() * set.length)]).join('');
+    for (let i = 0; i < 40; i++) {
+      const code = `${rand(LETTERS, 3)}-${rand('0123456789', 3)}`;
       if (!taken.has(code)) return code;
     }
-    return String(Date.now()).slice(-6);
+    return `STR-${String(Date.now()).slice(-4)}`;
   }
 
   async archive(companyId: string, id: string): Promise<Store> {
@@ -163,6 +167,22 @@ export class StoresService {
     );
   }
 
+  /**
+   * Company-wide activity list for the scheduling calendar overlay. Optionally
+   * narrowed by store and/or month (yyyy-MM). RLS already scopes to the tenant.
+   */
+  async listCompanyActivities(
+    companyId: string,
+    query: { storeId?: string; month?: string },
+  ): Promise<StoreActivity[]> {
+    return this.databaseService.withTenant(companyId, (tx) => {
+      const where = [eq(storeActivities.companyId, companyId)];
+      if (query.storeId) where.push(eq(storeActivities.storeId, query.storeId));
+      if (query.month) where.push(eq(storeActivities.month, query.month));
+      return tx.query.storeActivities.findMany({ where: and(...where) });
+    });
+  }
+
   async createActivity(
     companyId: string,
     storeId: string,
@@ -170,11 +190,49 @@ export class StoresService {
   ): Promise<StoreActivity> {
     await this.get(companyId, storeId);
     return this.databaseService.withTenant(companyId, async (tx) => {
+      // One activity per store per month: replace the existing month's mapping.
+      if (dto.month) {
+        await tx
+          .delete(storeActivities)
+          .where(and(eq(storeActivities.storeId, storeId), eq(storeActivities.month, dto.month)));
+      }
       const [activity] = await tx
         .insert(storeActivities)
         .values({ companyId, storeId, ...dto })
         .returning();
       return activity;
+    });
+  }
+
+  async updateActivity(
+    companyId: string,
+    storeId: string,
+    activityId: string,
+    dto: Partial<CreateActivityDto>,
+  ): Promise<StoreActivity> {
+    await this.get(companyId, storeId);
+    return this.databaseService.withTenant(companyId, async (tx) => {
+      const [activity] = await tx
+        .update(storeActivities)
+        .set(dto)
+        .where(and(eq(storeActivities.id, activityId), eq(storeActivities.storeId, storeId)))
+        .returning();
+      if (!activity) throw new NotFoundException('Activity not found.');
+      return activity;
+    });
+  }
+
+  async deleteActivity(
+    companyId: string,
+    storeId: string,
+    activityId: string,
+  ): Promise<{ removed: boolean }> {
+    await this.get(companyId, storeId);
+    return this.databaseService.withTenant(companyId, async (tx) => {
+      await tx
+        .delete(storeActivities)
+        .where(and(eq(storeActivities.id, activityId), eq(storeActivities.storeId, storeId)));
+      return { removed: true };
     });
   }
 
@@ -252,5 +310,75 @@ export class StoresService {
       hourly: hours,
       peakHours: peak,
     };
+  }
+
+  /**
+   * Real shift coverage for a store this week (Mon–Sun): total/assigned/open
+   * shift counts + scheduled hours. Backs the Team & shifts tab.
+   */
+  async shiftCoverage(companyId: string, id: string) {
+    await this.get(companyId, id);
+    const now = new Date();
+    const day = (now.getUTCDay() + 6) % 7; // 0 = Monday
+    const weekStart = new Date(now);
+    weekStart.setUTCHours(0, 0, 0, 0);
+    weekStart.setUTCDate(weekStart.getUTCDate() - day);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setUTCDate(weekEnd.getUTCDate() + 7);
+
+    const rows = await this.databaseService.withTenant(companyId, (tx) =>
+      tx.query.shifts.findMany({
+        where: and(
+          eq(shifts.storeId, id),
+          gte(shifts.startsAtUtc, weekStart),
+          lt(shifts.startsAtUtc, weekEnd),
+        ),
+        columns: {
+          employeeId: true,
+          startsAtUtc: true,
+          endsAtUtc: true,
+          breakMinutes: true,
+          status: true,
+        },
+      }),
+    );
+
+    let assigned = 0;
+    let open = 0;
+    let minutes = 0;
+    const byDay = Array.from({ length: 7 }, () => 0);
+    for (const s of rows) {
+      if (s.employeeId) assigned++;
+      else open++;
+      const dur = (s.endsAtUtc.getTime() - s.startsAtUtc.getTime()) / 60000 - (s.breakMinutes ?? 0);
+      minutes += Math.max(0, dur);
+      const d = (s.startsAtUtc.getUTCDay() + 6) % 7;
+      byDay[d] += 1;
+    }
+    return {
+      storeId: id,
+      weekStart: weekStart.toISOString(),
+      total: rows.length,
+      assigned,
+      open,
+      hours: Math.round((minutes / 60) * 10) / 10,
+      perDay: byDay,
+    };
+  }
+
+  /**
+   * Sibling stores in the same company (for the head-store hierarchy view).
+   * Marks the head/flagship stores so the detail page can render the hierarchy.
+   */
+  async siblings(companyId: string, id: string) {
+    await this.get(companyId, id);
+    const rows = await this.databaseService.withTenant(companyId, (tx) =>
+      tx.query.stores.findMany({
+        where: ne(stores.status, 'archived'),
+        columns: { id: true, name: true, code: true, headStore: true, logoUrl: true, city: true },
+        orderBy: (s, { desc, asc }) => [desc(s.headStore), asc(s.name)],
+      }),
+    );
+    return rows.map((s) => ({ ...s, isCurrent: s.id === id }));
   }
 }

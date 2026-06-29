@@ -8,6 +8,7 @@ import { PermissionGuard } from './permission.guard';
 import { PermissionsService } from './permissions.service';
 import { UpdateModuleVisibilityDto, UpdatePermissionsDto } from './dto/update-permissions.dto';
 import { MODULES } from './permission-defaults';
+import type { MembershipRole } from '../database/schema/enums';
 
 @ApiTags('permissions')
 @ApiBearerAuth()
@@ -35,6 +36,17 @@ export class PermissionsController {
     @Body() dto: UpdatePermissionsDto,
   ) {
     return this.permissionsService.setOverrides(companyId, userId, dto.entries);
+  }
+
+  /**
+   * The caller's OWN allowed module keys (sidebar visibility gate). Open to any
+   * member — `dashboard` is granted to every role by default, so this overrides
+   * the controller's `settings` requirement and reveals only the caller's role.
+   */
+  @Get('permissions/my-modules')
+  @RequirePermission('dashboard')
+  myModules(@CompanyId() companyId: string, @CurrentUser('role') role: MembershipRole) {
+    return this.permissionsService.allowedModulesFor(companyId, role);
   }
 
   @Get('module-visibility')
