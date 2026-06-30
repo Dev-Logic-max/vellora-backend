@@ -21,6 +21,7 @@ import type {
   CreateQualificationDto,
   InviteEmployeeDto,
   ListEmployeesDto,
+  UpdateContractDto,
   UpdateEmployeeDto,
   UpdatePreferencesDto,
   UpsertStoreLinkDto,
@@ -146,6 +147,22 @@ export class EmployeesService {
       relation: s.relation,
     }));
     const employee = await this.repo.create(companyId, values, links);
+
+    // Auto-create the employee's first ACTIVE contract from the contractual
+    // fields entered in the create modal, so it shows up in the Contract tab
+    // straight away (single source of truth for the lifecycle). Only when at
+    // least a contract type or hire date was provided.
+    if (dto.contractType || dto.hireDate || dto.weeklyHours != null) {
+      await this.repo.addContract(companyId, {
+        companyId,
+        employeeId: employee.id,
+        type: dto.contractType ?? 'full_time',
+        startDate: dto.hireDate ?? new Date().toISOString().slice(0, 10),
+        endDate: dto.contractEnd,
+        hoursWeek: dto.weeklyHours,
+        status: 'active',
+      });
+    }
 
     // When a platform role was chosen, raise a PENDING activation request (the
     // login is provisioned + the membership activated only on HR/admin approval).
@@ -320,6 +337,11 @@ export class EmployeesService {
 
   async addContract(companyId: string, id: string, dto: CreateContractDto) {
     await this.get(companyId, id);
+    const status = dto.status ?? 'active';
+    // Only one ACTIVE contract per employee at a time (drafts don't count).
+    if (status === 'active') {
+      await this.assertNoActiveContract(companyId, id);
+    }
     return this.repo.addContract(companyId, {
       companyId,
       employeeId: id,
@@ -331,6 +353,46 @@ export class EmployeesService {
       salary: dto.salary !== undefined ? String(dto.salary) : undefined,
       currency: dto.currency,
       docId: dto.docId,
+      status,
+    });
+  }
+
+  /** Guard: a person may hold at most one active contract (drafts excluded). */
+  private async assertNoActiveContract(companyId: string, id: string, exceptId?: string) {
+    const contracts = await this.repo.listContracts(companyId, id);
+    const conflict = contracts.find((c) => c.status === 'active' && c.id !== exceptId);
+    if (conflict) {
+      throw new BadRequestException(
+        'This employee already has an active contract. Cancel it before activating another.',
+      );
+    }
+  }
+
+  /** Update a contract in place (fields + status). Activating one is gated by the
+   * single-active rule. Cancelling/un-drafting routes through here too. */
+  async updateContract(companyId: string, id: string, contractId: string, dto: UpdateContractDto) {
+    const contract = await this.getContractOrThrow(companyId, id, contractId);
+    if (contract.status === 'cancelled' && dto.status !== 'active' && dto.status !== 'draft') {
+      // A cancelled contract is read-only unless explicitly reinstated.
+      throw new BadRequestException('A cancelled contract cannot be edited.');
+    }
+    if (dto.status === 'active') {
+      await this.assertNoActiveContract(companyId, id, contractId);
+    }
+    const actor = this.tenant.get()?.user?.userId ?? null;
+    return this.repo.updateContract(companyId, contractId, {
+      ...(dto.title !== undefined ? { title: dto.title } : {}),
+      ...(dto.type !== undefined ? { type: dto.type } : {}),
+      ...(dto.startDate !== undefined ? { startDate: dto.startDate } : {}),
+      ...(dto.endDate !== undefined ? { endDate: dto.endDate } : {}),
+      ...(dto.hoursWeek !== undefined ? { hoursWeek: dto.hoursWeek } : {}),
+      ...(dto.salary !== undefined ? { salary: String(dto.salary) } : {}),
+      ...(dto.currency !== undefined ? { currency: dto.currency } : {}),
+      ...(dto.status !== undefined
+        ? dto.status === 'cancelled'
+          ? { status: 'cancelled', cancelledAt: new Date(), cancelledBy: actor }
+          : { status: dto.status, cancelReason: null, cancelledAt: null, cancelledBy: null }
+        : {}),
     });
   }
 

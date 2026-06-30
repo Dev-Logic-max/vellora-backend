@@ -92,6 +92,10 @@ export class InviteEmployeeDto extends createZodDto(inviteEmployeeSchema) {}
 export const upsertStoreLinkSchema = storeLink.extend({ active: z.boolean().optional() });
 export class UpsertStoreLinkDto extends createZodDto(upsertStoreLinkSchema) {}
 
+/** Stored contract states. `expired` is DERIVED on read (active + past end date),
+ * never persisted, so it isn't accepted as an input status. */
+export const CONTRACT_INPUT_STATUSES = ['draft', 'active', 'cancelled'] as const;
+
 export const createContractSchema = z.object({
   title: z.string().max(120).optional(),
   type: z.enum(CONTRACT_TYPES).default('full_time'),
@@ -101,8 +105,30 @@ export const createContractSchema = z.object({
   salary: z.coerce.number().min(0).optional(),
   currency: z.string().length(3).optional(),
   docId: z.uuid().optional(),
+  /** Defaults to 'active' in the service when omitted. A draft can later be activated. */
+  status: z.enum(CONTRACT_INPUT_STATUSES).optional(),
 });
 export class CreateContractDto extends createZodDto(createContractSchema) {}
+
+/** Update a contract in place — any subset of fields, optionally its status. */
+export const updateContractSchema = z.object({
+  title: z.string().max(120).optional(),
+  type: z.enum(CONTRACT_TYPES).optional(),
+  startDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
+    .optional(),
+  endDate: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, 'Use YYYY-MM-DD')
+    .nullable()
+    .optional(),
+  hoursWeek: z.coerce.number().int().min(0).max(168).optional(),
+  salary: z.coerce.number().min(0).optional(),
+  currency: z.string().length(3).optional(),
+  status: z.enum(CONTRACT_INPUT_STATUSES).optional(),
+});
+export class UpdateContractDto extends createZodDto(updateContractSchema) {}
 
 /** Extend a contract — push (or clear) its end date. */
 export const extendContractSchema = z.object({

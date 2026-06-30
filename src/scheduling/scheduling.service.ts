@@ -54,6 +54,29 @@ function durationMinutes(s: Shift): number {
   return Math.max(0, gross - (s.breakMinutes ?? 0));
 }
 
+/** The yyyy-MM-dd calendar date of a UTC instant as seen in `tz`. */
+function localDateKey(instant: Date, tz: string): string {
+  return new Intl.DateTimeFormat('en-CA', {
+    timeZone: tz || 'UTC',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).format(instant);
+}
+
+/**
+ * A wide UTC window (±1 day) guaranteed to contain the store-local calendar day
+ * of `instant`. The caller fetches candidate shifts in this window cheaply, then
+ * narrows precisely by the local date key — used to enforce "one shift per
+ * employee per date".
+ */
+function localDayUtcWindow(instant: Date): { start: Date; end: Date } {
+  return {
+    start: new Date(instant.getTime() - DAY_MS),
+    end: new Date(instant.getTime() + DAY_MS),
+  };
+}
+
 /**
  * Tenant-scoped shift scheduling. On top of RLS, reads/writes are narrowed by
  * the caller's store scope (owner/HR all; area/store managers their stores).
@@ -100,7 +123,8 @@ export class SchedulingService {
     return shift;
   }
 
-  /** Enforces double-booking, on-leave, over-hours and store-capacity guards. */
+  /** Enforces single-shift-per-date, double-booking, on-leave, over-hours and
+   * store-capacity guards. */
   private async assertNoConflicts(
     companyId: string,
     employeeId: string,
@@ -109,6 +133,25 @@ export class SchedulingService {
     ends: Date,
     excludeId?: string,
   ): Promise<void> {
+    // One shift per employee per store-local date (point 8). Resolve the store's
+    // timezone, then reject if another committed shift already exists that day.
+    const store = await this.repo.storeById(companyId, storeId);
+    const tz = store?.timezone ?? 'UTC';
+    const targetDay = localDateKey(starts, tz);
+    const { start: dayStart, end: dayEnd } = localDayUtcWindow(starts);
+    const sameDay = await this.repo.employeeShiftsOnDay(
+      companyId,
+      employeeId,
+      dayStart,
+      dayEnd,
+      excludeId,
+    );
+    if (sameDay.some((s) => localDateKey(s.startsAtUtc, tz) === targetDay)) {
+      throw new ConflictException(
+        'This employee already has a shift on this date — only one shift per day is allowed.',
+      );
+    }
+
     const overlaps = await this.repo.findEmployeeOverlaps(
       companyId,
       employeeId,
@@ -141,7 +184,6 @@ export class SchedulingService {
       throw new ConflictException('This assignment exceeds the weekly hours limit (over-hours).');
     }
 
-    const store = await this.repo.storeById(companyId, storeId);
     if (store && store.capacity > 0) {
       const concurrent = await this.repo.countStoreConcurrent(
         companyId,
@@ -225,7 +267,8 @@ export class SchedulingService {
 
   async approve(companyId: string, id: string): Promise<Shift> {
     await this.get(companyId, id);
-    return this.repo.update(companyId, id, { status: 'approved' });
+    // Legacy "approve" action now marks the shift completed (point 4).
+    return this.repo.update(companyId, id, { status: 'completed' });
   }
 
   async cancel(companyId: string, id: string): Promise<Shift> {
@@ -343,7 +386,10 @@ export class SchedulingService {
         const slotEnd = slotStart + 3_600_000;
         const scheduled = shifts.filter(
           (s) =>
-            (s.status === 'assigned' || s.status === 'published' || s.status === 'approved') &&
+            (s.status === 'assigned' ||
+              s.status === 'completed' ||
+              s.status === 'published' ||
+              s.status === 'approved') &&
             s.startsAtUtc.getTime() < slotEnd &&
             s.endsAtUtc.getTime() > slotStart,
         ).length;

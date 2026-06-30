@@ -204,6 +204,13 @@
       "when": 1782975222550,
       "tag": "0028_user_model_roles",
       "breakpoints": true
+    },
+    {
+      "idx": 29,
+      "version": "7",
+      "when": 1783061622550,
+      "tag": "0029_shift_status_completed",
+      "breakpoints": true
     }
   ]
 }

@@ -35,6 +35,7 @@ import {
   ListActivationRequestsDto,
   ListEmployeesDto,
   RejectActivationDto,
+  UpdateContractDto,
   UpdateEmployeeDto,
   UpdatePreferencesDto,
   UpsertStoreLinkDto,
@@ -235,6 +236,19 @@ export class EmployeesController {
     @Body() dto: CreateContractDto,
   ) {
     return this.employees.addContract(companyId, id, dto);
+  }
+
+  @Patch(':id/contracts/:contractId')
+  @UseGuards(RolesGuard)
+  @Roles('owner', 'hr')
+  @ApiOperation({ summary: 'Update a contract in place (fields + status)' })
+  updateContract(
+    @CompanyId() companyId: string,
+    @Param('id', ParseUUIDPipe) id: string,
+    @Param('contractId', ParseUUIDPipe) contractId: string,
+    @Body() dto: UpdateContractDto,
+  ) {
+    return this.employees.updateContract(companyId, id, contractId, dto);
   }
 
   @Patch(':id/contracts/:contractId/extend')

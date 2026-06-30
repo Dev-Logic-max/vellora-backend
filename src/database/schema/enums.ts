@@ -91,14 +91,18 @@ export const CREDENTIAL_STATUSES = ['valid', 'expiring', 'expired'] as const;
 export type CredentialStatus = (typeof CREDENTIAL_STATUSES)[number];
 export const credentialStatusEnum = pgEnum('credential_status', CREDENTIAL_STATUSES);
 
-/** Shift lifecycle with distinct calendar colors (04-shifts §8). */
+/** Shift lifecycle with distinct calendar colors (04-shifts §8). UI surfaces
+ * Planning(`draft`)/Assigned/Completed/Cancelled + Off-day; `published`/`approved`
+ * are legacy values kept for existing rows (mapped to `completed` on display). */
 export const SHIFT_STATUSES = [
   'draft',
   'assigned',
-  'published',
-  'approved',
+  'completed',
   'cancelled',
   'off',
+  // legacy — kept so the pg enum stays a superset of historic rows.
+  'published',
+  'approved',
 ] as const;
 export type ShiftStatus = (typeof SHIFT_STATUSES)[number];
 export const shiftStatusEnum = pgEnum('shift_status', SHIFT_STATUSES);

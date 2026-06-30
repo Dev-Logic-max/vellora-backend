@@ -26,6 +26,7 @@ import { HealthModule } from './health/health.module';
 import { InfraModule } from './infra/infra.module';
 import { LeaveModule } from './leave/leave.module';
 import { MediaModule } from './media/media.module';
+import { MeProfileModule } from './me-profile/me-profile.module';
 import { MessagingModule } from './messaging/messaging.module';
 import { NotificationsModule } from './notifications/notifications.module';
 import { OnboardingModule } from './onboarding/onboarding.module';
@@ -80,6 +81,7 @@ import { WorkplacesModule } from './workplaces/workplaces.module';
     PlatformRequestsModule,
     ReportsModule,
     MediaModule,
+    MeProfileModule,
     AdminModule,
     PlatformOverviewModule,
   ],

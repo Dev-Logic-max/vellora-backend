@@ -22,8 +22,15 @@ export interface ShiftFilters {
   employeeId?: string;
 }
 
-/** Statuses that count as a real, conflicting commitment of an employee's time. */
-const ACTIVE_STATUSES: Shift['status'][] = ['draft', 'assigned', 'published', 'approved'];
+/** Statuses that count as a real, conflicting commitment of an employee's time.
+ * Includes the legacy `published`/`approved` plus the current `completed`. */
+const ACTIVE_STATUSES: Shift['status'][] = [
+  'draft',
+  'assigned',
+  'completed',
+  'published',
+  'approved',
+];
 
 /** All scheduling Drizzle access, RLS-scoped via DatabaseService.withTenant. */
 @Injectable()
@@ -113,6 +120,34 @@ export class SchedulingRepository {
     );
   }
 
+  /**
+   * Committed shifts for an employee whose start instant falls inside the
+   * [dayStart, dayEnd) UTC window (one store-local calendar day). Backs the
+   * "at most one shift per employee per date" rule (point 8). Off-days and
+   * cancelled shifts don't count.
+   */
+  employeeShiftsOnDay(
+    companyId: string,
+    employeeId: string,
+    dayStart: Date,
+    dayEnd: Date,
+    excludeId?: string,
+  ): Promise<Shift[]> {
+    const conds: SQL[] = [
+      eq(shifts.employeeId, employeeId),
+      inArray(shifts.status, ACTIVE_STATUSES),
+      gte(shifts.startsAtUtc, dayStart),
+      lt(shifts.startsAtUtc, dayEnd),
+    ];
+    if (excludeId) conds.push(ne(shifts.id, excludeId));
+    return this.db.withTenant(companyId, (tx) =>
+      tx
+        .select()
+        .from(shifts)
+        .where(and(...conds)),
+    );
+  }
+
   /** Concurrent committed shifts at a store overlapping [starts, ends) (for capacity). */
   countStoreConcurrent(
     companyId: string,
@@ -178,7 +213,9 @@ export class SchedulingRepository {
     return this.db.withTenant(companyId, (tx) =>
       tx
         .update(shifts)
-        .set({ status: 'published' })
+        // Bulk-publish now marks shifts as `completed` (point 4 — `published` is
+        // a legacy status no longer surfaced in the UI).
+        .set({ status: 'completed' })
         .where(
           and(
             eq(shifts.storeId, storeId),

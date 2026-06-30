@@ -27,13 +27,15 @@ export class ListShiftsDto extends createZodDto(listShiftsSchema) {}
 export const createShiftSchema = z
   .object({
     storeId: z.uuid(),
-    employeeId: z.uuid().optional(),
-    activityId: z.uuid().optional(),
-    role: z.string().max(80).optional(),
+    // `nullish` so the client may send explicit nulls (unassigned shift / off-day
+    // with no employee, no role, no notes) without tripping validation.
+    employeeId: z.uuid().nullish(),
+    activityId: z.uuid().nullish(),
+    role: z.string().max(80).nullish(),
     startsAtUtc: isoDateTime,
     endsAtUtc: isoDateTime,
     breakMinutes: z.coerce.number().int().min(0).max(600).optional(),
-    notes: z.string().max(500).optional(),
+    notes: z.string().max(500).nullish(),
     status: z.enum(SHIFT_STATUSES).optional(),
     source: z.enum(SHIFT_SOURCES).optional(),
   })

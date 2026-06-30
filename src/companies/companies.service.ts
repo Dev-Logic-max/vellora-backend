@@ -245,7 +245,23 @@ export class CompaniesService {
     });
   }
 
-  async getById(companyId: string, userId: string, isPlatform = false): Promise<Company> {
+  /** The active subscription's plan NAME for a company (privileged read), so the
+   * detail page shows the real plan instead of falling back to "Free" (point 12). */
+  private async planNameFor(companyId: string): Promise<string | null> {
+    const row = await this.databaseService.db
+      .select({ name: plans.name })
+      .from(subscriptions)
+      .innerJoin(plans, eq(plans.id, subscriptions.planId))
+      .where(eq(subscriptions.companyId, companyId))
+      .limit(1);
+    return row[0]?.name ?? null;
+  }
+
+  async getById(
+    companyId: string,
+    userId: string,
+    isPlatform = false,
+  ): Promise<Company & { planName: string | null }> {
     // Platform operators may read any company (cross-tenant, privileged); ordinary
     // users must be an active member (RLS-scoped read).
     if (isPlatform) {
@@ -253,10 +269,11 @@ export class CompaniesService {
         where: eq(companies.id, companyId),
       });
       if (!company) throw new NotFoundException('Company not found.');
-      return company;
+      return { ...company, planName: await this.planNameFor(companyId) };
     }
     await this.assertMember(companyId, userId);
-    return this.findCurrentScoped(companyId);
+    const company = await this.findCurrentScoped(companyId);
+    return { ...company, planName: await this.planNameFor(companyId) };
   }
 
   async update(companyId: string, userId: string, dto: UpdateCompanyDto): Promise<Company> {
