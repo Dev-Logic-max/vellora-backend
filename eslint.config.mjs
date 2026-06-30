@@ -7,6 +7,7 @@ import { createRequire } from 'module';
 
 const require = createRequire(import.meta.url);
 
+
 export default tseslint.config(
   {
     ignores: ['dist', 'node_modules', 'eslint.config.mjs', 'drizzle/**'],
