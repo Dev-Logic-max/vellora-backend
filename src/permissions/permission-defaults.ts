@@ -22,7 +22,13 @@ export const MODULES = [
   'settings',
   'billing',
   'recruiting',
+  'pos_dashboard',
+  'pos_register',
+  'pos_orders',
   'pos_products',
+  'pos_inventory',
+  'pos_customers',
+  'pos_registers',
   'pos_sales',
 ] as const;
 export type ModuleKey = (typeof MODULES)[number];
@@ -44,7 +50,13 @@ const MANAGER_MODULES: ModuleKey[] = [
   'reports',
   'messaging',
   'notifications',
+  'pos_dashboard',
+  'pos_register',
+  'pos_orders',
   'pos_products',
+  'pos_inventory',
+  'pos_customers',
+  'pos_registers',
   'pos_sales',
 ];
 

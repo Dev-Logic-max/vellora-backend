@@ -4,9 +4,12 @@ import { z } from 'zod';
 export const createProductSchema = z.object({
   name: z.string().min(1).max(160),
   sku: z.string().max(60).optional(),
+  barcode: z.string().max(60).optional(),
   categoryId: z.uuid().optional(),
   price: z.coerce.number().min(0).optional(),
+  cost: z.coerce.number().min(0).optional(),
   currency: z.string().length(3).optional(),
+  taxable: z.coerce.boolean().optional(),
   stock: z.coerce.number().int().min(0).optional(),
   lowStockThreshold: z.coerce.number().int().min(0).optional(),
   imageUrl: z.string().url().max(500).optional(),

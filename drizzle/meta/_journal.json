@@ -211,6 +211,13 @@
       "when": 1783061622550,
       "tag": "0029_shift_status_completed",
       "breakpoints": true
+    },
+    {
+      "idx": 30,
+      "version": "7",
+      "when": 1783148022550,
+      "tag": "0030_pos_full",
+      "breakpoints": true
     }
   ]
 }

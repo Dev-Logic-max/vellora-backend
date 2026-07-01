@@ -429,8 +429,9 @@ async function run(ctx: SeedContext): Promise<void> {
       await db.insert(schema.attendanceLogs).values(attendanceRows.slice(i, i + 200));
     }
 
-    // ── POS: categories + products per store ──────────────────────────────────
+    // ── POS: categories + products + a register + real orders per store ────────
     for (const storeId of storeIds) {
+      const storeProducts: { id: string; name: string; sku: string; price: number }[] = [];
       for (const cat of [
         { name: 'Apparel', color: '#8b5cf6' },
         { name: 'Accessories', color: '#0ea5e9' },
@@ -442,19 +443,85 @@ async function run(ctx: SeedContext): Promise<void> {
           .onConflictDoNothing()
           .returning();
         if (!category) continue;
-        await db.insert(schema.products).values(
-          Array.from({ length: 3 }, (_, pi) => ({
+        const inserted = await db
+          .insert(schema.products)
+          .values(
+            Array.from({ length: 3 }, (_, pi) => ({
+              companyId,
+              storeId,
+              categoryId: category.id,
+              name: `${cat.name} Item ${pi + 1}`,
+              sku: `${cat.name.slice(0, 3).toUpperCase()}-${storeId.slice(0, 4)}-${pi}`,
+              price: String(10 + Math.floor(rng() * 90)),
+              currency: def.currency,
+              stock: 40 + Math.floor(rng() * 100),
+              status: 'active',
+            })),
+          )
+          .returning();
+        for (const p of inserted) {
+          storeProducts.push({ id: p.id, name: p.name, sku: p.sku ?? '', price: Number(p.price) });
+        }
+      }
+
+      // A default register + a handful of completed orders across recent days so
+      // the POS dashboard / sales / reports render with real data.
+      if (storeProducts.length) {
+        const [register] = await db
+          .insert(schema.posRegisters)
+          .values({ companyId, storeId, name: 'Register 1' })
+          .onConflictDoNothing()
+          .returning();
+        const methods = ['cash', 'card', 'wallet'] as const;
+        const orderCount = 8 + Math.floor(rng() * 10);
+        for (let oi = 0; oi < orderCount; oi++) {
+          const daysAgo = Math.floor(rng() * 7);
+          const placedAt = new Date(Date.now() - daysAgo * 86_400_000 - Math.floor(rng() * 8) * 3_600_000);
+          const lineCount = 1 + Math.floor(rng() * 3);
+          let subtotal = 0;
+          const lines = Array.from({ length: lineCount }, () => {
+            const p = storeProducts[Math.floor(rng() * storeProducts.length)];
+            const qty = 1 + Math.floor(rng() * 3);
+            const lineTotal = Math.round(p.price * qty * 100) / 100;
+            subtotal += lineTotal;
+            return { p, qty, lineTotal };
+          });
+          subtotal = Math.round(subtotal * 100) / 100;
+          const method = methods[Math.floor(rng() * methods.length)];
+          const [order] = await db
+            .insert(schema.posOrders)
+            .values({
+              companyId,
+              storeId,
+              orderNumber: `ORD-${String(100000 + oi).slice(1)}-${storeId.slice(0, 4)}`,
+              registerId: register?.id ?? null,
+              subtotal: String(subtotal),
+              total: String(subtotal),
+              currency: def.currency,
+              paymentMethod: method,
+              status: 'completed',
+              createdAt: placedAt,
+            })
+            .returning();
+          await db.insert(schema.posOrderItems).values(
+            lines.map((l) => ({
+              companyId,
+              orderId: order.id,
+              productId: l.p.id,
+              name: l.p.name,
+              sku: l.p.sku,
+              unitPrice: String(l.p.price),
+              quantity: l.qty,
+              lineTotal: String(l.lineTotal),
+            })),
+          );
+          await db.insert(schema.posPayments).values({
             companyId,
-            storeId,
-            categoryId: category.id,
-            name: `${cat.name} Item ${pi + 1}`,
-            sku: `${cat.name.slice(0, 3).toUpperCase()}-${storeId.slice(0, 4)}-${pi}`,
-            price: String(10 + Math.floor(rng() * 90)),
-            currency: def.currency,
-            stock: Math.floor(rng() * 100),
-            status: 'active',
-          })),
-        );
+            orderId: order.id,
+            method,
+            amount: String(subtotal),
+          });
+        }
       }
     }
 
