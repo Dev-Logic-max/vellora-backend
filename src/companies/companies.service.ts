@@ -354,14 +354,55 @@ export class CompaniesService {
         .select({ value: count() })
         .from(memberships)
         .where(eq(memberships.companyId, companyId));
-      return { stores: storeCount.value, members: memberCount.value };
+      const [employeeCount] = await this.databaseService.db
+        .select({ value: count() })
+        .from(employees)
+        .where(eq(employees.companyId, companyId));
+      return {
+        stores: storeCount.value,
+        members: memberCount.value,
+        employees: employeeCount.value,
+        billing: await this.billingSummary(companyId),
+      };
     }
     await this.assertMember(companyId, userId);
     return this.databaseService.withTenant(companyId, async (tx) => {
       const [storeCount] = await tx.select({ value: count() }).from(stores);
       const [memberCount] = await tx.select({ value: count() }).from(memberships);
-      return { stores: storeCount.value, members: memberCount.value };
+      const [employeeCount] = await tx.select({ value: count() }).from(employees);
+      return {
+        stores: storeCount.value,
+        members: memberCount.value,
+        employees: employeeCount.value,
+        billing: await this.billingSummary(companyId),
+      };
     });
+  }
+
+  /** Active subscription + its plan, shaped for the company billing tab. Read on
+   * the privileged connection (subscriptions/plans aren't RLS-exposed to tenants)
+   * and filtered by companyId, so it's safe cross-tenant or scoped. */
+  private async billingSummary(companyId: string) {
+    const row = await this.databaseService.db
+      .select({
+        status: subscriptions.status,
+        interval: subscriptions.interval,
+        trialEndsAt: subscriptions.trialEndsAt,
+        currentPeriodEnd: subscriptions.currentPeriodEnd,
+        cancelAt: subscriptions.cancelAt,
+        createdAt: subscriptions.createdAt,
+        planKey: plans.key,
+        planName: plans.name,
+        priceMonth: plans.priceMonth,
+        priceYear: plans.priceYear,
+        currency: plans.currency,
+        limitsJson: plans.limitsJson,
+      })
+      .from(subscriptions)
+      .innerJoin(plans, eq(plans.id, subscriptions.planId))
+      .where(eq(subscriptions.companyId, companyId))
+      .limit(1);
+    return row[0] ?? null;
   }
 
   private async findCurrentScoped(companyId: string): Promise<Company> {
